@@ -44,7 +44,9 @@ export default {
       const channel = interaction.channel;
       const confirmed = interaction.customId.endsWith("yes");
       const ticketData = activeTickets[channel.id];
-      const logChannel = await guild.channels.fetch(process.env.TICKET_LOG_CHANNEL).catch(() => null);
+      const logChannelRaw = await guild.channels.fetch("1417526499761979412").catch(() => null);
+      if (!logChannelRaw || !logChannelRaw.isTextBased()) return;
+      const logChannel = logChannelRaw;
 
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
 
