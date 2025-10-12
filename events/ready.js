@@ -11,10 +11,10 @@ export default {
 
     try {
       await rest.put(
-        Routes.applicationGuildCommands(process.env.CLIENT_ID),
+        Routes.applicationCommands(process.env.CLIENT_ID),
         { body: commands }
       );
-      console.log("Slash commands registered.");
+      console.log("Global slash commands registered.");
     } catch (error) {
       console.error(error);
     }
