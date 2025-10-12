@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 export default {
   data: new SlashCommandBuilder()
@@ -6,8 +6,8 @@ export default {
     .setDescription("Create the ticket embed"),
 
   async execute(interaction) {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: "You need Administrator permissions to use this command." });
+    if (interaction.user.id !== "804292216511791204") {
+      return interaction.reply({ content: "You are not authorized to use this command.", ephemeral: true });
     }
 
     const embed = new EmbedBuilder()
