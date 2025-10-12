@@ -66,7 +66,7 @@ export default {
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      try { await command.execute(interaction, client); }
+      try { await command.execute(interaction, client); } 
       catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
@@ -123,13 +123,16 @@ export default {
         .addFields(
           { name: "**Ticket**", value: interaction.channel.name, inline: true },
           { name: "**Closed by**", value: user.tag, inline: true },
-          { name: "**Channel ID**", value: interaction.channel.id, inline: true },
-          { name: "Transcript URL", value: githubUrl || "Upload failed", inline: false }
+          { name: "**Channel ID**", value: interaction.channel.id, inline: true }
         )
         .setColor("Red")
         .setTimestamp();
 
-      await logChannel.send({ embeds: [closeEmbed] });
+      const transcriptButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(githubUrl || "https://example.com")
+      );
+
+      await logChannel.send({ embeds: [closeEmbed], components: [transcriptButton] });
 
       const createdAt = ticketData.createdAt ? new Date(ticketData.createdAt) : new Date();
       const closedAt = new Date();
@@ -147,13 +150,13 @@ export default {
           { name: "Closed By", value: user.tag, inline: false }
         );
 
-      const transcriptButton = new ActionRowBuilder().addComponents(
+      const dmButton = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(githubUrl || "https://example.com")
       );
 
       try {
         const owner = await client.users.fetch(ticketData.ownerId);
-        await owner.send({ embeds: [dmEmbed], components: [transcriptButton] });
+        await owner.send({ embeds: [dmEmbed], components: [dmButton] });
       } catch (err) {
         console.error("Failed to DM user:", err);
       }
