@@ -73,6 +73,19 @@ export default {
       return;
     }
 
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === "move_ticket") {
+        const selectedCategoryId = interaction.values[0];
+        const channel = interaction.channel;
+
+        if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
+
+        await channel.setParent(selectedCategoryId).catch(() => {});
+        await channel.lockPermissions().catch(() => {});
+        return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> successfully.`, ephemeral: true });
+      }
+    }
+
     if (!interaction.isButton()) return;
     const guild = interaction.guild;
     const user = interaction.user;
@@ -132,8 +145,8 @@ export default {
       activeTickets[interaction.channel.id] = ticketData;
       await saveTickets(activeTickets);
 
-      const message = await interaction.channel.messages.fetch({ limit: 10 });
-      const ticketMessage = message.find(m => m.components.length > 0);
+      const fetchedMessages = await interaction.channel.messages.fetch({ limit: 10 });
+      const ticketMessage = fetchedMessages.find(m => m.components.length > 0);
       if (ticketMessage) {
         const updatedRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
