@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 import { Octokit } from "octokit";
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
-const octokit = new Octokit({ auth: process.env.GITHUB_PAT });
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
 async function getTickets() {
   const res = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
