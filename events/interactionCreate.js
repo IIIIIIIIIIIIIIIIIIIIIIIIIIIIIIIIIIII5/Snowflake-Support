@@ -23,6 +23,43 @@ async function saveTickets(tickets) {
   });
 }
 
+function generateTranscriptHTML(channelName, messages) {
+  let html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Transcript - ${channelName}</title>
+    <style>
+      body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+      .message { margin-bottom: 15px; padding: 10px; border-radius: 5px; background: #fff; }
+      .author { font-weight: bold; color: #333; }
+      .content { margin-top: 5px; }
+      img { max-width: 300px; margin-top: 5px; border-radius: 5px; }
+      .timestamp { font-size: 0.8em; color: #666; margin-top: 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>Transcript for ${channelName}</h1>
+  `;
+
+  messages.reverse().forEach(msg => {
+    html += `<div class="message">
+      <div class="author">${msg.author.tag}</div>
+      <div class="content">${msg.content || ''}</div>`;
+    msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`);
+    html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div>`;
+    html += `</div>`;
+  });
+
+  html += `
+  </body>
+  </html>
+  `;
+
+  return html;
+}
+
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
@@ -53,14 +90,7 @@ export default {
       if (confirmed) {
         if (logChannel) {
           const messages = await channel.messages.fetch({ limit: 100 });
-          let html = `<html><body><h1>Transcript for ${channel.name}</h1>`;
-          messages.reverse().forEach(msg => {
-            html += `<p><strong>${msg.author.tag}:</strong> ${msg.content || ''}`;
-            msg.attachments.forEach(a => html += `<br><img src="${a.url}" width="300">`);
-            html += `</p>`;
-          });
-          html += "</body></html>";
-
+          const html = generateTranscriptHTML(channel.name, messages);
           const filePath = path.join("/tmp", `${channel.name}-transcript.html`);
           fs.writeFileSync(filePath, html);
 
