@@ -59,11 +59,13 @@ export default {
       if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
-      if (newCategory) await interaction.channel.permissionOverwrites.set(newCategory.permissionOverwrites.cache.map(po => ({
-        id: po.id,
-        allow: po.allow,
-        deny: po.deny
-      })));
+      if (newCategory) {
+        await interaction.channel.permissionOverwrites.set(newCategory.permissionOverwrites.cache.map(po => ({
+          id: po.id,
+          allow: po.allow,
+          deny: po.deny
+        })));
+      }
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.` });
     }
 
@@ -186,11 +188,13 @@ export default {
     });
 
     const category = guild.channels.cache.get(categoryId);
-    if (category) await channel.permissionOverwrites.set(category.permissionOverwrites.cache.map(po => ({
-      id: po.id,
-      allow: po.allow,
-      deny: po.deny
-    })));
+    if (category) {
+      await channel.permissionOverwrites.set(category.permissionOverwrites.cache.map(po => ({
+        id: po.id,
+        allow: po.allow,
+        deny: po.deny
+      })));
+    }
 
     activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
     await saveTickets(activeTickets);
@@ -206,6 +210,6 @@ export default {
       .setColor("Blue");
 
     await channel.send({ content: `${user}`, embeds: [ticketEmbed], components: [buttons] });
-    await interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
+    await interaction.reply({ content: `Ticket created: ${channel}` });
   }
 };
