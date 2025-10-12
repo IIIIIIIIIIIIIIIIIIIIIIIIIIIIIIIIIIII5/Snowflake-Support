@@ -132,6 +132,15 @@ export default {
       activeTickets[interaction.channel.id] = ticketData;
       await saveTickets(activeTickets);
 
+      const message = await interaction.channel.messages.fetch({ limit: 10 });
+      const ticketMessage = message.find(m => m.components.length > 0);
+      if (ticketMessage) {
+        const updatedRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
+        );
+        await ticketMessage.edit({ components: [updatedRow] });
+      }
+
       await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
 
       await interaction.channel.permissionOverwrites.set([
@@ -165,13 +174,10 @@ export default {
       name: `ticket-${user.username}`,
       type: ChannelType.GuildText,
       parent: categoryId,
-      topic: `${topic} | Opened by ${user.tag}`,
-      permissionOverwrites: [
-        { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-        { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
-        { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-      ],
+      topic: `${topic} | Opened by ${user.tag}`
     });
+
+    await channel.lockPermissions();
 
     activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
     await saveTickets(activeTickets);
