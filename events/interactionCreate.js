@@ -173,7 +173,7 @@ export default {
         SendMessages: true
       });
 
-      await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
+      await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: false });
       return;
     }
 
