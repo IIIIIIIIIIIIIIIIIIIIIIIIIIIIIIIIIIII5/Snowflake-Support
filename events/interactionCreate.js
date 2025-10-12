@@ -3,6 +3,7 @@ import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, Butto
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
+    // Slash command handling
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -16,9 +17,47 @@ export default {
     }
 
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith("confirm_close_")) {
+        const channel = interaction.channel;
+        const confirmed = interaction.customId.endsWith("yes");
+        const user = interaction.user;
+        const logChannel = await interaction.guild.channels.fetch("1417526499761979412").catch(() => null);
+
+        if (confirmed) {
+          if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+              .setTitle("Ticket Closed")
+              .setColor("Red")
+              .addFields(
+                { name: "Ticket", value: channel.name, inline: true },
+                { name: "Closed by", value: user.tag, inline: true },
+                { name: "Channel ID", value: channel.id, inline: true }
+              )
+              .setTimestamp();
+
+            await logChannel.send({ embeds: [logEmbed] });
+          }
+
+          await interaction.reply({ content: "Ticket closed.", ephemeral: true });
+          setTimeout(() => channel.delete().catch(() => {}), 2000);
+        } else {
+          await interaction.update({ content: "Ticket close cancelled.", components: [], embeds: [] });
+        }
+        return;
+      }
+
       if (interaction.customId === "close_ticket") {
-        await interaction.reply({ content: "This ticket will be closed in 5 seconds.", ephemeral: true });
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+        const confirmEmbed = new EmbedBuilder()
+          .setTitle("Confirm Ticket Closure")
+          .setDescription("Are you sure you want to close this ticket?")
+          .setColor("Red");
+
+        const confirmButtons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: true });
         return;
       }
 
