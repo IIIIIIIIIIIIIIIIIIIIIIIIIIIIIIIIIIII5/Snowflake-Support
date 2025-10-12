@@ -14,8 +14,35 @@ export default {
     .setName("add")
     .setDescription("Add a user to the current ticket")
     .addUserOption(option =>
-      option.setName("user").setDescription("User to add to this ticket").setRequired(true)
+      option
+        .setName("user")
+        .setDescription("User to add to this ticket")
+        .setRequired(true)
+        .setAutocomplete(true)
     ),
+
+  async autocomplete(interaction) {
+    const channel = interaction.channel;
+    if (!channel || !channel.name.startsWith("ticket-")) return;
+
+    const members = await channel.guild.members.fetch();
+    const existingOverwrites = channel.permissionOverwrites.cache.map(po => po.id);
+
+    const availableMembers = members.filter(
+      m => !existingOverwrites.includes(m.id) && !m.user.bot
+    );
+
+    const focusedValue = interaction.options.getFocused();
+    const filtered = availableMembers.filter(m =>
+      m.user.tag.toLowerCase().includes(focusedValue.toLowerCase())
+    );
+
+    await interaction.respond(
+      filtered
+        .map(m => ({ name: m.user.tag, value: m.id }))
+        .slice(0, 25)
+    );
+  },
 
   async execute(interaction) {
     const user = interaction.options.getUser("user");
