@@ -82,18 +82,24 @@ export default {
       await logChannel.send({ content: `Ticket Closed by ${user.tag}`, files: [file] });
 
       try {
-        const repo = process.env.GITHUB_REPO.split("/");
-        const content = Buffer.from(html).toString("base64");
+        const [owner, repo] = process.env.GITHUB_REPO.split("/");
+        const filePathGit = `tickets/${interaction.channel.id}/index.html`;
+        let sha;
+        try {
+          const { data } = await octokit.rest.repos.getContent({ owner, repo, path: filePathGit });
+          sha = data.sha;
+        } catch (err) {
+          if (err.status !== 404) throw err;
+        }
         await octokit.rest.repos.createOrUpdateFileContents({
-          owner: repo[0],
-          repo: repo[1],
-          path: `tickets/${interaction.channel.id}/index.html`,
+          owner,
+          repo,
+          path: filePathGit,
           message: `Add transcript for ticket ${interaction.channel.id}`,
-          content
+          content: Buffer.from(html).toString("base64"),
+          sha,
         });
-      } catch (err) {
-        console.error("GitHub upload failed:", err);
-      }
+      } catch (err) { console.error("GitHub upload failed:", err); }
 
       delete activeTickets[interaction.channel.id];
       await saveTickets(activeTickets);
