@@ -1,7 +1,13 @@
-import { SlashCommandBuilder, PermissionsBitField } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import fetch from "node-fetch";
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
+const ALLOWED_ROLES = [
+  "1403777162460397649",
+  "1235182843487981669",
+  "1423280211239243826",
+  "1402693639486046278"
+];
 
 async function getTickets() {
   const res = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
@@ -32,12 +38,8 @@ export default {
       return interaction.reply({ content: "This command can only be used inside a ticket channel.", ephemeral: true });
     }
 
-    const isStaff = member.permissions.has(PermissionsBitField.Flags.ManageChannels);
-    const isOwner = ticketData && ticketData.ownerId === member.id;
-
-    if (!isStaff && !isOwner) {
-      return interaction.reply({ content: "Only staff or the ticket owner can use this command.", ephemeral: true });
-    }
+    const hasRole = member.roles.cache.some(r => ALLOWED_ROLES.includes(r.id));
+    if (!hasRole) return interaction.reply({ content: "You do not have permission to use this command.", ephemeral: true });
 
     await channel.permissionOverwrites.edit(user.id, {
       ViewChannel: true,
