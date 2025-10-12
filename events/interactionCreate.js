@@ -82,7 +82,12 @@ export default {
 
       const closeEmbed = new EmbedBuilder()
         .setTitle("**Ticket Closed**")
-        .setDescription(`**Ticket:** ${interaction.channel.name}  **Closed by:** ${user.tag}  **Channel ID:** ${interaction.channel.id}\n**Time:** ${new Date().toLocaleString()}`)
+        .addFields(
+          { name: "**Ticket**", value: interaction.channel.name, inline: true },
+          { name: "**Closed by**", value: user.tag, inline: true },
+          { name: "**Channel ID**", value: interaction.channel.id, inline: true },
+          { name: "**Time**", value: new Date().toLocaleString(), inline: true }
+        )
         .setColor("Red")
         .setTimestamp();
 
