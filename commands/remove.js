@@ -18,31 +18,7 @@ export default {
         .setName("user")
         .setDescription("User to remove from this ticket")
         .setRequired(true)
-        .setAutocomplete(true)
     ),
-
-  async autocomplete(interaction) {
-    const channel = interaction.channel;
-    if (!channel || !channel.name.startsWith("ticket-")) return;
-
-    const overwrites = channel.permissionOverwrites.cache;
-    const members = await channel.guild.members.fetch();
-
-    const includedMembers = members.filter(
-      m => overwrites.has(m.id) && !m.user.bot
-    );
-
-    const focusedValue = interaction.options.getFocused();
-    const filtered = includedMembers.filter(m =>
-      m.user.tag.toLowerCase().includes(focusedValue.toLowerCase())
-    );
-
-    await interaction.respond(
-      filtered
-        .map(m => ({ name: m.user.tag, value: m.id }))
-        .slice(0, 25)
-    );
-  },
 
   async execute(interaction) {
     const user = interaction.options.getUser("user");
