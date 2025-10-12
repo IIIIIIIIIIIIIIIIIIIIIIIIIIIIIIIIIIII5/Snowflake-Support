@@ -14,7 +14,11 @@ async function getTickets() {
 }
 
 async function saveTickets(tickets) {
-  await fetch(JSONBIN_URL, { method: "PUT", headers: { "Content-Type": "application/json", "X-Master-Key": process.env.JSONBIN_KEY }, body: JSON.stringify(tickets) });
+  await fetch(JSONBIN_URL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Master-Key": process.env.JSONBIN_KEY },
+    body: JSON.stringify(tickets)
+  });
 }
 
 function generateTranscriptHTML(channelName, messages) {
@@ -26,7 +30,11 @@ function generateTranscriptHTML(channelName, messages) {
   img{max-width:300px;margin-top:5px;border-radius:5px;}
   .timestamp{font-size:0.8em;color:#666;margin-top:3px;}
   </style></head><body><h1>Transcript for ${channelName}</h1>`;
-  messages.reverse().forEach(msg => { html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`; msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`); html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div></div>`; });
+  messages.reverse().forEach(msg => {
+    html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`;
+    msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`);
+    html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div></div>`;
+  });
   html += `</body></html>`;
   return html;
 }
@@ -41,7 +49,8 @@ export default {
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      try { await command.execute(interaction, client); } catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+      try { await command.execute(interaction, client); } 
+      catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
@@ -58,57 +67,71 @@ export default {
     const ticketData = activeTickets[interaction.channel.id];
 
     if (interaction.customId.startsWith("confirm_close_")) {
+      await interaction.deferReply({ ephemeral: true });
       const confirmed = interaction.customId.endsWith("yes");
-      const logChannelRaw = await guild.channels.fetch("1417526499761979412").catch(() => null);
-      if (!logChannelRaw || !logChannelRaw.isTextBased()) return;
-      const logChannel = logChannelRaw;
-      if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
+      const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
+      if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
+      if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
+      if (!confirmed) return interaction.editReply({ content: "Ticket close cancelled." });
 
-      if (confirmed) {
-        if (logChannel) {
-          const messages = await interaction.channel.messages.fetch({ limit: 100 });
-          const html = generateTranscriptHTML(interaction.channel.name, messages);
-          const filePath = path.join("/tmp", `${interaction.channel.name}-transcript.html`);
-          fs.writeFileSync(filePath, html);
-          const file = new AttachmentBuilder(filePath);
-          await logChannel.send({ content: `Ticket Closed by ${user.tag}`, files: [file] });
-          const repo = process.env.GITHUB_REPO;
-          const content = fs.readFileSync(filePath, "utf8");
-          const ticketId = interaction.channel.id;
-          await octokit.rest.repos.createOrUpdateFileContents({ owner: repo.split("/")[0], repo: repo.split("/")[1], path: `tickets/${ticketId}/index.html`, message: `Add transcript for ticket ${ticketId}`, content: Buffer.from(content).toString("base64") });
-        }
-        await interaction.reply({ content: "Ticket closed and transcript uploaded!", ephemeral: true });
-        delete activeTickets[interaction.channel.id];
-        await saveTickets(activeTickets);
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
-      } else {
-        await interaction.update({ content: "Ticket close cancelled.", components: [], embeds: [] });
+      const messages = await interaction.channel.messages.fetch({ limit: 100 });
+      const html = generateTranscriptHTML(interaction.channel.name, messages);
+      const filePath = path.join("/tmp", `${interaction.channel.name}-transcript.html`);
+      fs.writeFileSync(filePath, html);
+      const file = new AttachmentBuilder(filePath);
+      await logChannel.send({ content: `Ticket Closed by ${user.tag}`, files: [file] });
+
+      try {
+        const repo = process.env.GITHUB_REPO.split("/");
+        const content = Buffer.from(html).toString("base64");
+        await octokit.rest.repos.createOrUpdateFileContents({
+          owner: repo[0],
+          repo: repo[1],
+          path: `tickets/${interaction.channel.id}/index.html`,
+          message: `Add transcript for ticket ${interaction.channel.id}`,
+          content
+        });
+      } catch (err) {
+        console.error("GitHub upload failed:", err);
       }
+
+      delete activeTickets[interaction.channel.id];
+      await saveTickets(activeTickets);
+      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and GitHub." });
+      setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
       return;
     }
 
     if (interaction.customId === "close_ticket") {
-      const confirmEmbed = new EmbedBuilder().setTitle("Confirm Ticket Closure").setDescription("Are you sure you want to close this ticket?").setColor("Red");
+      const confirmEmbed = new EmbedBuilder()
+        .setTitle("Confirm Ticket Closure")
+        .setDescription("Are you sure you want to close this ticket?")
+        .setColor("Red");
       const confirmButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
       );
-      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons] });
+      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: true });
       return;
     }
 
     if (interaction.customId === "claim_ticket") {
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
       if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
+
       ticketData.claimerId = user.id;
       activeTickets[interaction.channel.id] = ticketData;
       await saveTickets(activeTickets);
+
       const fetchedMessages = await interaction.channel.messages.fetch({ limit: 10 });
       const ticketMessage = fetchedMessages.find(m => m.components.length > 0);
       if (ticketMessage) {
-        const updatedRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger));
+        const updatedRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
+        );
         await ticketMessage.edit({ components: [updatedRow] });
       }
+
       await interaction.reply({ content: `Ticket claimed by ${user.tag}` });
       await interaction.channel.permissionOverwrites.set([
         { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
@@ -119,20 +142,45 @@ export default {
       return;
     }
 
-    const TICKET_CATEGORIES = { report: process.env.REPORT_CATEGORY, appeal: process.env.APPEAL_CATEGORY, inquiry: process.env.INQUIRY_CATEGORY };
+    const TICKET_CATEGORIES = {
+      report: process.env.REPORT_CATEGORY,
+      appeal: process.env.APPEAL_CATEGORY,
+      inquiry: process.env.INQUIRY_CATEGORY
+    };
+
     let categoryId, topic;
-    switch (interaction.customId) { case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; break; case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; break; case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; break; default: return; }
+    switch (interaction.customId) {
+      case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; break;
+      case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; break;
+      case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; break;
+      default: return;
+    }
+
     const existing = guild.channels.cache.find(c => c.name === `ticket-${user.username.toLowerCase()}`);
     if (existing) return interaction.reply({ content: "You already have an open ticket.", ephemeral: true });
-    const channel = await guild.channels.create({ name: `ticket-${user.username}`, type: ChannelType.GuildText, parent: categoryId, topic: `${topic} | Opened by ${user.tag}` });
+
+    const channel = await guild.channels.create({
+      name: `ticket-${user.username}`,
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      topic: `${topic} | Opened by ${user.tag}`
+    });
+
     await channel.lockPermissions();
+
     activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
     await saveTickets(activeTickets);
+
     const buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim Ticket").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
     );
-    const ticketEmbed = new EmbedBuilder().setTitle(topic).setDescription("A staff member will be with you shortly.\nPlease describe your issue below.").setColor("Blue");
+
+    const ticketEmbed = new EmbedBuilder()
+      .setTitle(topic)
+      .setDescription("A staff member will be with you shortly.\nPlease describe your issue below.")
+      .setColor("Blue");
+
     await channel.send({ content: `${user}`, embeds: [ticketEmbed], components: [buttons] });
     await interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
   }
