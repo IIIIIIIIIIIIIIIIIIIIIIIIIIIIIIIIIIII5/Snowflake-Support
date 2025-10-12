@@ -136,7 +136,7 @@ export default {
         new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
       );
-      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: true });
+      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: false });
       return;
     }
 
