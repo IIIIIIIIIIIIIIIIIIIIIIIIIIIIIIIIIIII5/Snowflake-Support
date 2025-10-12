@@ -95,7 +95,7 @@ export default {
           content,
           branch: "main"
         });
-        githubUrl = `https://${process.env.GITHUB_USERNAME}.github.io/tickets/${interaction.channel.id}/index.html`;
+        githubUrl = `https://${process.env.GITHUB_USER}.github.io/tickets/${interaction.channel.id}/index.html`;
       } catch (err) {
         console.error("GitHub upload failed:", err);
       }
@@ -206,6 +206,6 @@ export default {
       .setColor("Blue");
 
     await channel.send({ content: `${user}`, embeds: [ticketEmbed], components: [buttons] });
-    await interaction.reply({ content: `Ticket created: ${channel}` });
+    await interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
   }
 };
