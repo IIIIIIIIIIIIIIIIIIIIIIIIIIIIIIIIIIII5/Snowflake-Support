@@ -23,12 +23,12 @@ async function saveTickets(tickets) {
 
 function generateTranscriptHTML(channelName, messages) {
   let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${channelName}</title><style>
-  body{font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;}
-  .message{margin-bottom:15px;padding:10px;border-radius:5px;background:#fff;}
-  .author{font-weight:bold;color:#333;}
-  .content{margin-top:5px;}
+  body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px;}
+  .message{margin-bottom:15px;padding:10px;border-radius:5px;background:#222;}
+  .author{font-weight:bold;color:#fff;}
+  .content{margin-top:5px;color:#ddd;}
   img{max-width:300px;margin-top:5px;border-radius:5px;}
-  .timestamp{font-size:0.8em;color:#666;margin-top:3px;}
+  .timestamp{font-size:0.8em;color:#aaa;margin-top:3px;}
   </style></head><body><h1>Transcript for ${channelName}</h1>`;
   messages.reverse().forEach(msg => {
     html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`;
@@ -192,7 +192,13 @@ export default {
     });
 
     const category = guild.channels.cache.get(categoryId);
-    await syncPermissions(channel, category);
+    if (category) {
+      await channel.permissionOverwrites.set(category.permissionOverwrites.cache.map(po => ({
+        id: po.id,
+        allow: po.allow,
+        deny: po.deny
+      })));
+    }
 
     activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
     await saveTickets(activeTickets);
