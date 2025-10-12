@@ -49,6 +49,13 @@ async function syncPermissions(channel, category) {
   await channel.permissionOverwrites.set(overwrites);
 }
 
+function getCategoryType(categoryId) {
+  if (categoryId === process.env.REPORT_CATEGORY) return "Report";
+  if (categoryId === process.env.APPEAL_CATEGORY) return "Appeal";
+  if (categoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
+  return "Unknown";
+}
+
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
@@ -59,7 +66,7 @@ export default {
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      try { await command.execute(interaction, client); } 
+      try { await command.execute(interaction, client); }
       catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
@@ -124,6 +131,33 @@ export default {
 
       await logChannel.send({ embeds: [closeEmbed] });
 
+      const createdAt = ticketData.createdAt ? new Date(ticketData.createdAt) : new Date();
+      const closedAt = new Date();
+      const diffDays = Math.round((closedAt - createdAt) / (1000 * 60 * 60 * 24));
+      const categoryType = getCategoryType(interaction.channel.parentId);
+      const ticketNumber = Object.values(activeTickets).filter(t => t.categoryType === categoryType).length + 1;
+
+      const dmEmbed = new EmbedBuilder()
+        .setTitle("Ticket Closed")
+        .setColor("Red")
+        .addFields(
+          { name: "Ticket", value: `${categoryType} #${ticketNumber}`, inline: false },
+          { name: "Created At", value: createdAt.toLocaleString(), inline: true },
+          { name: "Closed At", value: `${closedAt.toLocaleString()} (${diffDays} day${diffDays !== 1 ? "s" : ""})`, inline: true },
+          { name: "Closed By", value: user.tag, inline: false }
+        );
+
+      const transcriptButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(githubUrl || "https://example.com")
+      );
+
+      try {
+        const owner = await client.users.fetch(ticketData.ownerId);
+        await owner.send({ embeds: [dmEmbed], components: [transcriptButton] });
+      } catch (err) {
+        console.error("Failed to DM user:", err);
+      }
+
       delete activeTickets[interaction.channel.id];
       await saveTickets(activeTickets);
       await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and GitHub." });
@@ -163,9 +197,7 @@ export default {
       }
 
       const category = interaction.channel.parent ? guild.channels.cache.get(interaction.channel.parentId) : null;
-      if (category) {
-        await syncPermissions(interaction.channel, category);
-      }
+      if (category) await syncPermissions(interaction.channel, category);
 
       await interaction.channel.permissionOverwrites.edit(ticketData.ownerId, {
         ViewChannel: true,
@@ -188,11 +220,11 @@ export default {
       inquiry: process.env.INQUIRY_CATEGORY
     };
 
-    let categoryId, topic;
+    let categoryId, topic, type;
     switch (interaction.customId) {
-      case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; break;
-      case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; break;
-      case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; break;
+      case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; type = "Report"; break;
+      case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; type = "Appeal"; break;
+      case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; type = "Inquiry"; break;
       default: return;
     }
 
@@ -207,15 +239,14 @@ export default {
     });
 
     const category = guild.channels.cache.get(categoryId);
-    if (category) {
-      await channel.permissionOverwrites.set(category.permissionOverwrites.cache.map(po => ({
-        id: po.id,
-        allow: po.allow,
-        deny: po.deny
-      })));
-    }
+    if (category) await syncPermissions(channel, category);
 
-    activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
+    activeTickets[channel.id] = {
+      ownerId: user.id,
+      claimerId: null,
+      createdAt: Date.now(),
+      categoryType: type
+    };
     await saveTickets(activeTickets);
 
     const buttons = new ActionRowBuilder().addComponents(
