@@ -1,23 +1,27 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } from "discord.js";
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('mute')
-        .setDescription('Mute a user in the server')
-        .addUserOption(option =>
-            option.setName('target')
-                  .setDescription('The user to mute')
-                  .setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.MuteMembers),
+  data: new SlashCommandBuilder()
+    .setName("setup")
+    .setDescription("Create the ticket embed"),
 
-    async execute(interaction) {
-        const member = interaction.options.getMember('target');
-        if (!member) return interaction.reply({ content: 'User not found.', ephemeral: true });
-
-        const muteRole = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === 'muted');
-        if (!muteRole) return interaction.reply({ content: 'No "Muted" role found. Please create one.', ephemeral: true });
-
-        await member.roles.add(muteRole);
-        await interaction.reply({ content: `${member.user.tag} has been muted.` });
+  async execute(interaction) {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return interaction.reply({ content: "You need Administrator permissions to use this command." });
     }
+
+    const embed = new EmbedBuilder()
+      .setTitle("SFP Official Tickets")
+      .setDescription("To create a ticket, use the buttons below.")
+      .setColor("#2B2D31");
+
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("report_ticket").setLabel("Report a user").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("appeal_ticket").setLabel("Appeal a punishment").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("inquiry_ticket").setLabel("Inquiries").setStyle(ButtonStyle.Danger)
+    );
+
+    await interaction.channel.send({ embeds: [embed], components: [buttons] });
+    await interaction.reply({ content: "Ticket panel created successfully.", ephemeral: true });
+  }
 };
