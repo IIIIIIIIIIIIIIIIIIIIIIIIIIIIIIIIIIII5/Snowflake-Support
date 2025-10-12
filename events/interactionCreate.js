@@ -39,6 +39,16 @@ function generateTranscriptHTML(channelName, messages) {
   return html;
 }
 
+async function syncPermissions(channel, category) {
+  if (!category) return;
+  const overwrites = category.permissionOverwrites.cache.map(po => ({
+    id: po.id,
+    allow: new PermissionsBitField(po.allow).bitfield,
+    deny: new PermissionsBitField(po.deny).bitfield
+  }));
+  await channel.permissionOverwrites.set(overwrites);
+}
+
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
@@ -59,13 +69,7 @@ export default {
       if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
-      if (newCategory) {
-        await interaction.channel.permissionOverwrites.set(newCategory.permissionOverwrites.cache.map(po => ({
-          id: po.id,
-          allow: po.allow,
-          deny: po.deny
-        })));
-      }
+      await syncPermissions(interaction.channel, newCategory);
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.` });
     }
 
@@ -188,13 +192,7 @@ export default {
     });
 
     const category = guild.channels.cache.get(categoryId);
-    if (category) {
-      await channel.permissionOverwrites.set(category.permissionOverwrites.cache.map(po => ({
-        id: po.id,
-        allow: po.allow,
-        deny: po.deny
-      })));
-    }
+    await syncPermissions(channel, category);
 
     activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
     await saveTickets(activeTickets);
