@@ -1,34 +1,51 @@
 import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from "discord.js";
 import fs from "fs";
 import path from "path";
+import fetch from "node-fetch";
 
-const activeTickets = new Map();
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
+
+async function getTickets() {
+  const res = await fetch(JSONBIN_URL, {
+    headers: { "X-Master-Key": process.env.JSONBIN_KEY }
+  });
+  const data = await res.json();
+  return data.record || {};
+}
+
+async function saveTickets(tickets) {
+  await fetch(JSONBIN_URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": process.env.JSONBIN_KEY
+    },
+    body: JSON.stringify(tickets)
+  });
+}
 
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
+    let activeTickets = await getTickets();
+
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      try {
-        await command.execute(interaction, client);
-      } catch (err) {
-        console.error(err);
-        interaction.reply({ content: "An error occurred while executing this command.", ephemeral: true });
-      }
+      try { await command.execute(interaction, client); } 
+      catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
     if (!interaction.isButton()) return;
-
     const guild = interaction.guild;
     const user = interaction.user;
 
     if (interaction.customId.startsWith("confirm_close_")) {
       const channel = interaction.channel;
       const confirmed = interaction.customId.endsWith("yes");
-      const ticketData = activeTickets.get(channel.id);
-      const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
+      const ticketData = activeTickets[channel.id];
+      const logChannel = await guild.channels.fetch(process.env.TICKET_LOG_CHANNEL).catch(() => null);
 
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
 
@@ -51,7 +68,8 @@ export default {
         }
 
         await interaction.reply({ content: "Ticket closed.", ephemeral: true });
-        activeTickets.delete(channel.id);
+        delete activeTickets[channel.id];
+        await saveTickets(activeTickets);
         setTimeout(() => channel.delete().catch(() => {}), 2000);
       } else {
         await interaction.update({ content: "Ticket close cancelled.", components: [], embeds: [] });
@@ -75,12 +93,13 @@ export default {
     }
 
     if (interaction.customId === "claim_ticket") {
-      const ticketData = activeTickets.get(interaction.channel.id);
+      const ticketData = activeTickets[interaction.channel.id];
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
       if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
       ticketData.claimerId = user.id;
-      activeTickets.set(interaction.channel.id, ticketData);
+      activeTickets[interaction.channel.id] = ticketData;
+      await saveTickets(activeTickets);
 
       await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
 
@@ -99,24 +118,13 @@ export default {
       inquiry: process.env.INQUIRY_CATEGORY,
     };
 
-    let categoryId;
-    let topic;
+    let categoryId, topic;
 
     switch (interaction.customId) {
-      case "report_ticket":
-        categoryId = TICKET_CATEGORIES.report;
-        topic = "Report a User";
-        break;
-      case "appeal_ticket":
-        categoryId = TICKET_CATEGORIES.appeal;
-        topic = "Appeal a Punishment";
-        break;
-      case "inquiry_ticket":
-        categoryId = TICKET_CATEGORIES.inquiry;
-        topic = "Inquiries";
-        break;
-      default:
-        return;
+      case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; break;
+      case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; break;
+      case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; break;
+      default: return;
     }
 
     const existing = guild.channels.cache.find(c => c.name === `ticket-${user.username.toLowerCase()}`);
@@ -134,7 +142,8 @@ export default {
       ],
     });
 
-    activeTickets.set(channel.id, { ownerId: user.id, claimerId: null });
+    activeTickets[channel.id] = { ownerId: user.id, claimerId: null };
+    await saveTickets(activeTickets);
 
     const buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim Ticket").setStyle(ButtonStyle.Success),
