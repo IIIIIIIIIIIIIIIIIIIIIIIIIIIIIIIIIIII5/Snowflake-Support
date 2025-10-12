@@ -136,7 +136,7 @@ export default {
         await ticketMessage.edit({ components: [updatedRow] });
       }
 
-      await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
+      await interaction.reply({ content: `Ticket claimed by ${user.tag}` });
       await interaction.channel.permissionOverwrites.set([
         { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
         { id: ticketData.ownerId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
