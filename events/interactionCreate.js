@@ -2,7 +2,7 @@ import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, Butto
 import fs from "fs";
 import path from "path";
 
-const activeTickets = new Map(); // ticketChannelId -> { ownerId, claimerId }
+const activeTickets = new Map();
 
 export default {
   name: "interactionCreate",
