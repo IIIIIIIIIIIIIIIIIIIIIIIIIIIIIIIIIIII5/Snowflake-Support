@@ -3,7 +3,6 @@ import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, Butto
 export default {
   name: "interactionCreate",
   async execute(interaction, client) {
-    // Slash command handling
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
