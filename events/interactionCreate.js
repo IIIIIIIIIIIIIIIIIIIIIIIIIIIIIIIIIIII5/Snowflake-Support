@@ -63,6 +63,8 @@ export default {
     const guild = interaction.guild;
     const user = interaction.user;
 
+    if (!client.ticketCounts) client.ticketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
+
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -138,7 +140,7 @@ export default {
       const closedAt = new Date();
       const diffDays = Math.round((closedAt - createdAt) / (1000 * 60 * 60 * 24));
       const categoryType = getCategoryType(interaction.channel.parentId);
-      const ticketNumber = Object.values(activeTickets).filter(t => t.categoryType === categoryType).length + 1;
+      const ticketNumber = ticketData.ticketNumber;
 
       const dmEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
@@ -244,11 +246,15 @@ export default {
     const category = guild.channels.cache.get(categoryId);
     if (category) await syncPermissions(channel, category);
 
+    client.ticketCounts[type] += 1;
+    const ticketNumber = client.ticketCounts[type];
+
     activeTickets[channel.id] = {
       ownerId: user.id,
       claimerId: null,
       createdAt: Date.now(),
-      categoryType: type
+      categoryType: type,
+      ticketNumber
     };
     await saveTickets(activeTickets);
 
