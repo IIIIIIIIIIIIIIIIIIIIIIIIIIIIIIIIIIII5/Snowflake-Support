@@ -70,7 +70,7 @@ export default {
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
       await syncPermissions(interaction.channel, newCategory);
-      return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.` });
+      return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
     if (!interaction.isButton()) return;
@@ -107,13 +107,13 @@ export default {
       }
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle("**Ticket Closed**")
+        .setTitle("Ticket Closed")
         .addFields(
-          { name: "**Ticket:**", value: interaction.channel.name, inline: true },
-          { name: "**Closed by:**", value: user.tag, inline: true },
-          { name: "**Channel ID:**", value: interaction.channel.id, inline: true },
-          { name: "**Time:**", value: new Date().toLocaleString(), inline: true },
-          { name: "**Transcript URL:**", value: githubUrl || "Upload failed", inline: false }
+          { name: "Ticket", value: interaction.channel.name, inline: true },
+          { name: "Closed by", value: user.tag, inline: true },
+          { name: "Channel ID", value: interaction.channel.id, inline: true },
+          { name: "Time", value: new Date().toLocaleString(), inline: true },
+          { name: "Transcript URL", value: githubUrl || "Upload failed", inline: false }
         )
         .setColor("Red")
         .setTimestamp();
@@ -136,13 +136,13 @@ export default {
         new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
       );
-      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons] });
+      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: true });
       return;
     }
 
     if (interaction.customId === "claim_ticket") {
-      if (!ticketData) return interaction.reply({ content: "Ticket data not found." });
-      if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed." });
+      if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
+      if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
       ticketData.claimerId = user.id;
       activeTickets[interaction.channel.id] = ticketData;
@@ -157,13 +157,23 @@ export default {
         await ticketMessage.edit({ components: [updatedRow] });
       }
 
-      await interaction.reply({ content: `Ticket claimed by ${user.tag}` });
-      await interaction.channel.permissionOverwrites.set([
-        { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-        { id: ticketData.ownerId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
-        { id: ticketData.claimerId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-        { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-      ]);
+      const category = interaction.channel.parent ? guild.channels.cache.get(interaction.channel.parentId) : null;
+      if (category) {
+        await syncPermissions(interaction.channel, category);
+      }
+
+      await interaction.channel.permissionOverwrites.edit(ticketData.ownerId, {
+        ViewChannel: true,
+        SendMessages: true,
+        AttachFiles: true
+      });
+
+      await interaction.channel.permissionOverwrites.edit(ticketData.claimerId, {
+        ViewChannel: true,
+        SendMessages: true
+      });
+
+      await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
       return;
     }
 
@@ -182,7 +192,7 @@ export default {
     }
 
     const existing = guild.channels.cache.find(c => c.name === `ticket-${user.username.toLowerCase()}`);
-    if (existing) return interaction.reply({ content: "You already have an open ticket." });
+    if (existing) return interaction.reply({ content: "You already have an open ticket.", ephemeral: true });
 
     const channel = await guild.channels.create({
       name: `ticket-${user.username}`,
@@ -214,6 +224,6 @@ export default {
       .setColor("Blue");
 
     await channel.send({ content: `${user}`, embeds: [ticketEmbed], components: [buttons] });
-    await interaction.reply({ content: `Ticket created: ${channel}` });
+    await interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
   }
 };
