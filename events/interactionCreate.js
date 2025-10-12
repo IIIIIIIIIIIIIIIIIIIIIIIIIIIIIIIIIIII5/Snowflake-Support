@@ -82,7 +82,10 @@ export default {
       const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
       if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
       if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
-      if (!confirmed) return interaction.editReply({ content: "Ticket close cancelled." });
+      if (!confirmed) {
+        await interaction.editReply({ content: "Ticket close cancelled." });
+        return;
+      }
 
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
       const html = generateTranscriptHTML(interaction.channel.name, messages);
@@ -107,12 +110,11 @@ export default {
       }
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle("Ticket Closed")
+        .setTitle("**Ticket Closed**")
         .addFields(
-          { name: "Ticket", value: interaction.channel.name, inline: true },
-          { name: "Closed by", value: user.tag, inline: true },
-          { name: "Channel ID", value: interaction.channel.id, inline: true },
-          { name: "Time", value: new Date().toLocaleString(), inline: true },
+          { name: "**Ticket**", value: interaction.channel.name, inline: true },
+          { name: "**Closed by**", value: user.tag, inline: true },
+          { name: "**Channel ID**", value: interaction.channel.id, inline: true },
           { name: "Transcript URL", value: githubUrl || "Upload failed", inline: false }
         )
         .setColor("Red")
