@@ -77,8 +77,11 @@ export default {
     const ticketData = activeTickets[interaction.channel.id];
 
     if (interaction.customId.startsWith("confirm_close_")) {
-      await interaction.deferReply({ ephemeral: false });
       const confirmed = interaction.customId.endsWith("yes");
+      const message = await interaction.message.fetch();
+      await message.edit({ components: [] });
+      await interaction.deferReply({ ephemeral: false });
+
       const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
       if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
       if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
@@ -115,6 +118,7 @@ export default {
           { name: "**Ticket**", value: interaction.channel.name, inline: true },
           { name: "**Closed by**", value: user.tag, inline: true },
           { name: "**Channel ID**", value: interaction.channel.id, inline: true },
+          { name: "**Time**", value: new Date().toLocaleString(), inline: true },
           { name: "Transcript URL", value: githubUrl || "Upload failed", inline: false }
         )
         .setColor("Red")
