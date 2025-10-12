@@ -1,4 +1,4 @@
-import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageAttachment } from "discord.js";
+import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from "discord.js";
 import fs from "fs";
 import path from "path";
 
@@ -24,7 +24,6 @@ export default {
     const guild = interaction.guild;
     const user = interaction.user;
 
-    // Ticket Close Confirm
     if (interaction.customId.startsWith("confirm_close_")) {
       const channel = interaction.channel;
       const confirmed = interaction.customId.endsWith("yes");
@@ -47,7 +46,8 @@ export default {
           const filePath = path.join("/tmp", `${channel.name}-transcript.html`);
           fs.writeFileSync(filePath, html);
 
-          await logChannel.send({ content: `Ticket Closed by ${user.tag}`, files: [filePath] });
+          const file = new AttachmentBuilder(filePath);
+          await logChannel.send({ content: `Ticket Closed by ${user.tag}`, files: [file] });
         }
 
         await interaction.reply({ content: "Ticket closed.", ephemeral: true });
@@ -59,7 +59,6 @@ export default {
       return;
     }
 
-    // Close Ticket Button
     if (interaction.customId === "close_ticket") {
       const confirmEmbed = new EmbedBuilder()
         .setTitle("Confirm Ticket Closure")
@@ -75,11 +74,9 @@ export default {
       return;
     }
 
-    // Claim Ticket Button
     if (interaction.customId === "claim_ticket") {
       const ticketData = activeTickets.get(interaction.channel.id);
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
-
       if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
       ticketData.claimerId = user.id;
@@ -87,7 +84,6 @@ export default {
 
       await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: true });
 
-      // Update permissions
       await interaction.channel.permissionOverwrites.set([
         { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
         { id: ticketData.ownerId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles] },
@@ -97,7 +93,6 @@ export default {
       return;
     }
 
-    // Ticket Creation
     const TICKET_CATEGORIES = {
       report: process.env.REPORT_CATEGORY,
       appeal: process.env.APPEAL_CATEGORY,
