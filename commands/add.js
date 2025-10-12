@@ -1,4 +1,13 @@
 import { SlashCommandBuilder, PermissionsBitField } from "discord.js";
+import fetch from "node-fetch";
+
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
+
+async function getTickets() {
+  const res = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
+  const data = await res.json();
+  return data.record || {};
+}
 
 export default {
   data: new SlashCommandBuilder()
@@ -11,13 +20,20 @@ export default {
   async execute(interaction) {
     const user = interaction.options.getUser("user");
     const channel = interaction.channel;
+    const member = interaction.member;
 
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
-      return interaction.reply({ content: "You need Manage Channels permission to use this command.", ephemeral: true });
-    }
+    const tickets = await getTickets();
+    const ticketData = tickets[channel.id];
 
     if (!channel.name.startsWith("ticket-")) {
       return interaction.reply({ content: "This command can only be used inside a ticket channel.", ephemeral: true });
+    }
+
+    const isStaff = member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+    const isOwner = ticketData && ticketData.ownerId === member.id;
+
+    if (!isStaff && !isOwner) {
+      return interaction.reply({ content: "Only staff or the ticket owner can use this command.", ephemeral: true });
     }
 
     await channel.permissionOverwrites.edit(user.id, {
