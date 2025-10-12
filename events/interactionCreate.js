@@ -1,4 +1,4 @@
-import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, StringSelectMenuBuilder } from "discord.js";
+import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } from "discord.js";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
@@ -63,7 +63,6 @@ export default {
     }
 
     if (!interaction.isButton()) return;
-
     const ticketData = activeTickets[interaction.channel.id];
 
     if (interaction.customId.startsWith("confirm_close_")) {
@@ -83,10 +82,10 @@ export default {
       const closeEmbed = new EmbedBuilder()
         .setTitle("**Ticket Closed**")
         .addFields(
-          { name: "**Ticket**", value: interaction.channel.name, inline: true },
-          { name: "**Closed by**", value: user.tag, inline: true },
-          { name: "**Channel ID**", value: interaction.channel.id, inline: true },
-          { name: "**Time**", value: new Date().toLocaleString(), inline: true }
+          { name: "**Ticket:**", value: interaction.channel.name, inline: true },
+          { name: "**Closed by:**", value: user.tag, inline: true },
+          { name: "**Channel ID:**", value: interaction.channel.id, inline: true },
+          { name: "**Time:**", value: new Date().toLocaleString(), inline: true }
         )
         .setColor("Red")
         .setTimestamp();
@@ -101,7 +100,8 @@ export default {
           repo: repo[1],
           path: `tickets/${interaction.channel.id}/index.html`,
           message: `Add transcript for ticket ${interaction.channel.id}`,
-          content
+          content,
+          branch: "main"
         });
       } catch (err) {
         console.error("GitHub upload failed:", err);
