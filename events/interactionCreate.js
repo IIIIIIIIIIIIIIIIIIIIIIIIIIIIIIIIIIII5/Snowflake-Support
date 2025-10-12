@@ -77,16 +77,15 @@ export default {
     const ticketData = activeTickets[interaction.channel.id];
 
     if (interaction.customId.startsWith("confirm_close_")) {
-      const confirmed = interaction.customId.endsWith("yes");
-      const message = await interaction.message.fetch();
-      await message.edit({ components: [] });
       await interaction.deferReply({ ephemeral: false });
-
+      const confirmed = interaction.customId.endsWith("yes");
       const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
       if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
       if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
+
       if (!confirmed) {
-        await interaction.editReply({ content: "Ticket close cancelled." });
+        await interaction.message.edit({ content: "Ticket close cancelled.", components: [] });
+        await interaction.editReply({ content: "Cancelled ticket closure." });
         return;
       }
 
@@ -118,7 +117,6 @@ export default {
           { name: "**Ticket**", value: interaction.channel.name, inline: true },
           { name: "**Closed by**", value: user.tag, inline: true },
           { name: "**Channel ID**", value: interaction.channel.id, inline: true },
-          { name: "**Time**", value: new Date().toLocaleString(), inline: true },
           { name: "Transcript URL", value: githubUrl || "Upload failed", inline: false }
         )
         .setColor("Red")
@@ -129,6 +127,7 @@ export default {
       delete activeTickets[interaction.channel.id];
       await saveTickets(activeTickets);
       await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and GitHub." });
+      await interaction.message.edit({ components: [] });
       setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
       return;
     }
