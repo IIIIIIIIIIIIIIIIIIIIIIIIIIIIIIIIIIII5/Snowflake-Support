@@ -1,10 +1,12 @@
-import { REST, Routes } from "discord.js";
+import { REST, Routes, ActivityType } from "discord.js";
 
 export default {
   name: "ready",
   once: true,
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
+
+    client.user.setActivity('Snowflake Prison Roleplay', { type: ActivityType.Watching });
 
     const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
     const commands = client.commands.map(cmd => cmd.data.toJSON());
