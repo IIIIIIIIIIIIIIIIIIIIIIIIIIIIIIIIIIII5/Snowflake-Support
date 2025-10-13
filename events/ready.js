@@ -6,7 +6,7 @@ export default {
   async execute(client) {
     console.log(`Logged in as ${client.user.tag}`);
 
-    client.user.setActivity('Snowflake Prison Roleplay', { type: ActivityType.Watching });
+    client.user.setActivity('Support Tickets', { type: ActivityType.Watching });
 
     const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
     const commands = client.commands.map(cmd => cmd.data.toJSON());
