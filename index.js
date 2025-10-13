@@ -17,8 +17,6 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) 
   commands.push(command.default.data.toJSON());
 }
 
-client.user.setActivity('Snowflake Prison Roleplay', { type: ActivityType.Watching });
-
 const eventsPath = path.join(process.cwd(), "events");
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
   const event = await import(`./events/${file}`);
