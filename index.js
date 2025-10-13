@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
+import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType  } from "discord.js";
 import fs from "fs";
 import path from "path";
 
@@ -16,6 +16,8 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) 
   client.commands.set(command.default.data.name, command.default);
   commands.push(command.default.data.toJSON());
 }
+
+client.user.setActivity('Snowflake Prison Roleplay', { type: ActivityType.Watching });
 
 const eventsPath = path.join(process.cwd(), "events");
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
