@@ -121,11 +121,11 @@ export default {
       }
 
       const closeEmbed = new EmbedBuilder()
-        .setTitle("**Ticket Closed**")
+        .setTitle("Ticket Closed")
         .addFields(
-          { name: "**Ticket**", value: interaction.channel.name, inline: true },
-          { name: "**Closed by**", value: user.tag, inline: true },
-          { name: "**Channel ID**", value: interaction.channel.id, inline: true }
+          { name: "Ticket", value: interaction.channel.name, inline: true },
+          { name: "Closed by", value: user.tag, inline: true },
+          { name: "Channel ID", value: interaction.channel.id, inline: true }
         )
         .setColor("Red")
         .setTimestamp();
@@ -245,6 +245,12 @@ export default {
 
     const category = guild.channels.cache.get(categoryId);
     if (category) await syncPermissions(channel, category);
+
+    await channel.permissionOverwrites.edit(user.id, {
+      ViewChannel: true,
+      SendMessages: true,
+      AttachFiles: true
+    });
 
     client.ticketCounts[type] += 1;
     const ticketNumber = client.ticketCounts[type];
