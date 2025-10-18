@@ -70,6 +70,14 @@ export default {
 
     if (!client.ticketCounts) client.ticketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
 
+    for (const t of Object.values(activeTickets)) {
+      if (t.categoryType && typeof t.ticketNumber === "number") {
+        if (!client.ticketCounts[t.categoryType] || client.ticketCounts[t.categoryType] < t.ticketNumber) {
+          client.ticketCounts[t.categoryType] = t.ticketNumber;
+        }
+      }
+    }
+
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
@@ -81,27 +89,19 @@ export default {
     if (interaction.isStringSelectMenu() && interaction.customId === "move_ticket") {
       const selectedCategoryId = interaction.values[0];
       if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
-
-      const oldCategory = interaction.channel.parent;
+      const oldCategory = guild.channels.cache.get(interaction.channel.parentId);
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
       const ticketData = activeTickets[interaction.channel.id];
       if (ticketData) await syncPermissions(interaction.channel, newCategory, ticketData.ownerId);
-
-      if (ticketData) {
-        try {
-          const owner = await client.users.fetch(ticketData.ownerId);
-          const moveEmbed = new EmbedBuilder()
-            .setTitle("Ticket Moved")
-            .setDescription(`Your ticket has been moved from **${oldCategory?.name || "Unknown"}** to **${newCategory?.name || "Unknown"}**.`)
-            .setColor("Orange")
-            .setTimestamp();
-          await owner.send({ embeds: [moveEmbed] });
-        } catch (err) {
-          console.error("Failed to DM ticket owner:", err);
-        }
-      }
-
+      try {
+        const owner = await client.users.fetch(ticketData.ownerId);
+        const moveEmbed = new EmbedBuilder()
+          .setTitle("Ticket Moved")
+          .setColor("Yellow")
+          .setDescription(`Your ticket has been moved from **${oldCategory ? oldCategory.name : "Unknown"}** to **${newCategory ? newCategory.name : "Unknown"}**.`);
+        await owner.send({ embeds: [moveEmbed] });
+      } catch (err) { console.error("Failed to DM ticket owner:", err); }
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -114,12 +114,7 @@ export default {
       const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
       if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
       if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
-
-      if (!confirmed) {
-        await interaction.message.edit({ content: "Ticket close cancelled.", components: [] });
-        await interaction.editReply({ content: "Cancelled ticket closure." });
-        return;
-      }
+      if (!confirmed) { await interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await interaction.editReply({ content: "Cancelled ticket closure." }); return; }
 
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
       const html = generateTranscriptHTML(interaction.channel.name, messages);
@@ -139,9 +134,7 @@ export default {
           branch: "main"
         });
         githubUrl = `https://${process.env.GITHUB_USER}.github.io/tickets/${interaction.channel.id}/index.html`;
-      } catch (err) {
-        console.error("GitHub upload failed:", err);
-      }
+      } catch (err) { console.error("GitHub upload failed:", err); }
 
       const closeEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
@@ -182,9 +175,7 @@ export default {
       try {
         const owner = await client.users.fetch(ticketData.ownerId);
         await owner.send({ embeds: [dmEmbed], components: [dmButton] });
-      } catch (err) {
-        console.error("Failed to DM user:", err);
-      }
+      } catch (err) { console.error("Failed to DM user:", err); }
 
       delete activeTickets[interaction.channel.id];
       await saveTickets(activeTickets);
@@ -222,9 +213,7 @@ export default {
       ];
 
       const hasRole = member.roles.cache.some(r => allowedRoles.includes(r.id));
-      if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && !hasRole) {
-        return interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
-      }
+      if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && !hasRole) return interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
 
       ticketData.claimerId = user.id;
       activeTickets[interaction.channel.id] = ticketData;
@@ -271,7 +260,7 @@ export default {
       default: return;
     }
 
-    const existing = guild.channels.cache.find(c => c.name === `ticket-${user.username.toLowerCase()}`);
+    const existing = guild.channels.cache.find(c => c.name.startsWith(`ticket-${user.username.toLowerCase()}`));
     if (existing) return interaction.reply({ content: "You already have an open ticket.", ephemeral: true });
 
     const channel = await guild.channels.create({
@@ -308,7 +297,7 @@ export default {
     );
 
     const ticketEmbed = new EmbedBuilder()
-      .setTitle(topic)
+      .setTitle(`${topic} #${ticketNumber}`)
       .setDescription("A staff member will be with you shortly.\nPlease describe your issue below.")
       .setColor("Blue");
 
