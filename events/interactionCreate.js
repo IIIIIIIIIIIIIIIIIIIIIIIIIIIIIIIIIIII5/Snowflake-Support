@@ -39,7 +39,7 @@ function generateTranscriptHTML(channelName, messages) {
   return html;
 }
 
-async function syncPermissions(channel, category) {
+async function syncPermissions(channel, category, ownerId) {
   if (!category) return;
   const overwrites = category.permissionOverwrites.cache.map(po => ({
     id: po.id,
@@ -47,6 +47,11 @@ async function syncPermissions(channel, category) {
     deny: new PermissionsBitField(po.deny).bitfield
   }));
   await channel.permissionOverwrites.set(overwrites);
+  await channel.permissionOverwrites.edit(ownerId, {
+    ViewChannel: true,
+    SendMessages: true,
+    AttachFiles: true
+  });
 }
 
 function getCategoryType(categoryId) {
@@ -78,7 +83,8 @@ export default {
       if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
-      await syncPermissions(interaction.channel, newCategory);
+      const ticketData = activeTickets[interaction.channel.id];
+      if (ticketData) await syncPermissions(interaction.channel, newCategory, ticketData.ownerId);
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -188,6 +194,21 @@ export default {
       if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
       if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
+      const member = await guild.members.fetch(user.id);
+      const allowedRoles = [
+        "1403777886661644398",
+        "1403777609522745485",
+        "1403777335416848537",
+        "1403777452517494784",
+        "1403777162460397649",
+        "1423280211239243826"
+      ];
+
+      const hasRole = member.roles.cache.some(r => allowedRoles.includes(r.id));
+      if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && !hasRole) {
+        return interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
+      }
+
       ticketData.claimerId = user.id;
       activeTickets[interaction.channel.id] = ticketData;
       await saveTickets(activeTickets);
@@ -202,7 +223,7 @@ export default {
       }
 
       const category = interaction.channel.parent ? guild.channels.cache.get(interaction.channel.parentId) : null;
-      if (category) await syncPermissions(interaction.channel, category);
+      if (category) await syncPermissions(interaction.channel, category, ticketData.ownerId);
 
       await interaction.channel.permissionOverwrites.edit(ticketData.ownerId, {
         ViewChannel: true,
@@ -244,7 +265,7 @@ export default {
     });
 
     const category = guild.channels.cache.get(categoryId);
-    if (category) await syncPermissions(channel, category);
+    if (category) await syncPermissions(channel, category, user.id);
 
     await channel.permissionOverwrites.edit(user.id, {
       ViewChannel: true,
