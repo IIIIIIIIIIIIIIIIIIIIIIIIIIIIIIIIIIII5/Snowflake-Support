@@ -81,10 +81,27 @@ export default {
     if (interaction.isStringSelectMenu() && interaction.customId === "move_ticket") {
       const selectedCategoryId = interaction.values[0];
       if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
+
+      const oldCategory = interaction.channel.parent;
       await interaction.channel.setParent(selectedCategoryId).catch(() => {});
       const newCategory = guild.channels.cache.get(selectedCategoryId);
       const ticketData = activeTickets[interaction.channel.id];
       if (ticketData) await syncPermissions(interaction.channel, newCategory, ticketData.ownerId);
+
+      if (ticketData) {
+        try {
+          const owner = await client.users.fetch(ticketData.ownerId);
+          const moveEmbed = new EmbedBuilder()
+            .setTitle("Ticket Moved")
+            .setDescription(`Your ticket has been moved from **${oldCategory?.name || "Unknown"}** to **${newCategory?.name || "Unknown"}**.`)
+            .setColor("Orange")
+            .setTimestamp();
+          await owner.send({ embeds: [moveEmbed] });
+        } catch (err) {
+          console.error("Failed to DM ticket owner:", err);
+        }
+      }
+
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
