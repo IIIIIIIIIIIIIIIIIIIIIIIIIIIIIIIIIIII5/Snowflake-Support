@@ -4,33 +4,33 @@ import path from "path";
 import fetch from "node-fetch";
 import { Octokit } from "octokit";
 
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
+const OctokitClient = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-async function getTickets() {
-  const res = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
+async function GetTickets() {
+  const res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
   const data = await res.json();
   return data.record || {};
 }
 
-async function saveTickets(tickets) {
-  await fetch(JSONBIN_URL, {
+async function SaveTickets(Tickets) {
+  await fetch(JsonBinUrl, {
     method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": process.env.JSONBIN_KEY },
-    body: JSON.stringify(tickets)
+    body: JSON.stringify(Tickets)
   });
 }
 
-function generateTranscriptHTML(channelName, messages) {
-  let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${channelName}</title><style>
+function GenerateTranscriptHtml(ChannelName, Messages) {
+  let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${ChannelName}</title><style>
   body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px;}
   .message{margin-bottom:15px;padding:10px;border-radius:5px;background:#222;}
   .author{font-weight:bold;color:#fff;}
   .content{margin-top:5px;color:#ddd;}
   img{max-width:300px;margin-top:5px;border-radius:5px;}
   .timestamp{font-size:0.8em;color:#aaa;margin-top:3px;}
-  </style></head><body><h1>Transcript for ${channelName}</h1>`;
-  messages.reverse().forEach(msg => {
+  </style></head><body><h1>Transcript for ${ChannelName}</h1>`;
+  Messages.reverse().forEach(msg => {
     html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`;
     msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`);
     html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div></div>`;
@@ -39,171 +39,171 @@ function generateTranscriptHTML(channelName, messages) {
   return html;
 }
 
-async function syncPermissions(channel, category, ownerId) {
-  if (!category) return;
-  const overwrites = category.permissionOverwrites.cache.map(po => ({
+async function SyncPermissions(Channel, Category, OwnerId) {
+  if (!Category) return;
+  const Overwrites = Category.permissionOverwrites.cache.map(po => ({
     id: po.id,
     allow: new PermissionsBitField(po.allow).bitfield,
     deny: new PermissionsBitField(po.deny).bitfield
   }));
-  await channel.permissionOverwrites.set(overwrites);
-  await channel.permissionOverwrites.edit(ownerId, {
+  await Channel.permissionOverwrites.set(Overwrites);
+  await Channel.permissionOverwrites.edit(OwnerId, {
     ViewChannel: true,
     SendMessages: true,
     AttachFiles: true
   });
 }
 
-function getCategoryType(categoryId) {
-  if (categoryId === process.env.REPORT_CATEGORY) return "Report";
-  if (categoryId === process.env.APPEAL_CATEGORY) return "Appeal";
-  if (categoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
+function GetCategoryType(CategoryId) {
+  if (CategoryId === process.env.REPORT_CATEGORY) return "Report";
+  if (CategoryId === process.env.APPEAL_CATEGORY) return "Appeal";
+  if (CategoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
   return "Unknown";
 }
 
 export default {
   name: "interactionCreate",
-  async execute(interaction, client) {
-    let activeTickets = await getTickets();
-    const guild = interaction.guild;
-    const user = interaction.user;
+  async execute(Interaction, Client) {
+    let ActiveTickets = await GetTickets();
+    const Guild = Interaction.guild;
+    const User = Interaction.user;
 
-    if (!client.ticketCounts) client.ticketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
+    if (!Client.TicketCounts) Client.TicketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
 
-    for (const t of Object.values(activeTickets)) {
+    for (const t of Object.values(ActiveTickets)) {
       if (t.categoryType && typeof t.ticketNumber === "number") {
-        if (!client.ticketCounts[t.categoryType] || client.ticketCounts[t.categoryType] < t.ticketNumber) {
-          client.ticketCounts[t.categoryType] = t.ticketNumber;
+        if (!Client.TicketCounts[t.categoryType] || Client.TicketCounts[t.categoryType] < t.ticketNumber) {
+          Client.TicketCounts[t.categoryType] = t.ticketNumber;
         }
       }
     }
 
-    if (interaction.isChatInputCommand()) {
-      const command = client.commands.get(interaction.commandName);
-      if (!command) return;
-      try { await command.execute(interaction, client); } 
-      catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+    if (Interaction.isChatInputCommand()) {
+      const Command = Client.commands.get(Interaction.commandName);
+      if (!Command) return;
+      try { await Command.execute(Interaction, Client); } 
+      catch (err) { console.error(err); Interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === "move_ticket") {
-      const selectedCategoryId = interaction.values[0];
-      if (!selectedCategoryId) return interaction.reply({ content: "Invalid category selected.", ephemeral: true });
-      const oldCategory = guild.channels.cache.get(interaction.channel.parentId);
-      await interaction.channel.setParent(selectedCategoryId).catch(() => {});
-      const newCategory = guild.channels.cache.get(selectedCategoryId);
-      const ticketData = activeTickets[interaction.channel.id];
-      if (ticketData) await syncPermissions(interaction.channel, newCategory, ticketData.ownerId);
+    if (Interaction.isStringSelectMenu() && Interaction.customId === "move_ticket") {
+      const SelectedCategoryId = Interaction.values[0];
+      if (!SelectedCategoryId) return Interaction.reply({ content: "Invalid category selected.", ephemeral: true });
+      const OldCategory = Guild.channels.cache.get(Interaction.channel.parentId);
+      await Interaction.channel.setParent(SelectedCategoryId).catch(() => {});
+      const NewCategory = Guild.channels.cache.get(SelectedCategoryId);
+      const TicketData = ActiveTickets[Interaction.channel.id];
+      if (TicketData) await SyncPermissions(Interaction.channel, NewCategory, TicketData.ownerId);
       try {
-        const owner = await client.users.fetch(ticketData.ownerId);
-        const moveEmbed = new EmbedBuilder()
+        const Owner = await Client.users.fetch(TicketData.ownerId);
+        const MoveEmbed = new EmbedBuilder()
           .setTitle("Ticket Moved")
           .setColor("Yellow")
-          .setDescription(`Your ticket has been moved from **${oldCategory ? oldCategory.name : "Unknown"}** to **${newCategory ? newCategory.name : "Unknown"}**.`);
-        await owner.send({ embeds: [moveEmbed] });
+          .setDescription(`Your ticket has been moved from **${OldCategory ? OldCategory.name : "Unknown"}** to **${NewCategory ? NewCategory.name : "Unknown"}**.`);
+        await Owner.send({ embeds: [MoveEmbed] });
       } catch (err) { console.error("Failed to DM ticket owner:", err); }
-      return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
+      return Interaction.reply({ content: `Ticket moved to <#${SelectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
-    if (!interaction.isButton()) return;
-    const ticketData = activeTickets[interaction.channel.id];
+    if (!Interaction.isButton()) return;
+    const TicketData = ActiveTickets[Interaction.channel.id];
 
-    if (interaction.customId.startsWith("confirm_close_")) {
-      await interaction.deferReply({ ephemeral: false });
-      const confirmed = interaction.customId.endsWith("yes");
-      const logChannel = await guild.channels.fetch("1417526499761979412").catch(() => null);
-      if (!logChannel?.isTextBased()) return interaction.editReply({ content: "Log channel not found." });
-      if (!ticketData) return interaction.editReply({ content: "Ticket data not found." });
-      if (!confirmed) { await interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await interaction.editReply({ content: "Cancelled ticket closure." }); return; }
+    if (Interaction.customId.startsWith("confirm_close_")) {
+      await Interaction.deferReply({ ephemeral: false });
+      const Confirmed = Interaction.customId.endsWith("yes");
+      const LogChannel = await Guild.channels.fetch("1417526499761979412").catch(() => null);
+      if (!LogChannel?.isTextBased()) return Interaction.editReply({ content: "Log channel not found." });
+      if (!TicketData) return Interaction.editReply({ content: "Ticket data not found." });
+      if (!Confirmed) { await Interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await Interaction.editReply({ content: "Cancelled ticket closure." }); return; }
 
-      const messages = await interaction.channel.messages.fetch({ limit: 100 });
-      const html = generateTranscriptHTML(interaction.channel.name, messages);
-      const filePath = path.join("/tmp", `${interaction.channel.name}-transcript.html`);
-      fs.writeFileSync(filePath, html);
+      const Messages = await Interaction.channel.messages.fetch({ limit: 100 });
+      const Html = GenerateTranscriptHtml(Interaction.channel.name, Messages);
+      const FilePath = path.join("/tmp", `${Interaction.channel.name}-transcript.html`);
+      fs.writeFileSync(FilePath, Html);
 
-      let githubUrl = "";
+      let GithubUrl = "";
       try {
-        const repo = process.env.GITHUB_REPO.split("/");
-        const content = Buffer.from(html).toString("base64");
-        await octokit.rest.repos.createOrUpdateFileContents({
-          owner: repo[0],
-          repo: repo[1],
-          path: `${interaction.channel.id}/index.html`,
-          message: `Add transcript for ticket ${interaction.channel.id}`,
-          content,
+        const Repo = process.env.GITHUB_REPO.split("/");
+        const Content = Buffer.from(Html).toString("base64");
+        await OctokitClient.rest.repos.createOrUpdateFileContents({
+          owner: Repo[0],
+          repo: Repo[1],
+          path: `${Interaction.channel.id}/index.html`,
+          message: `Add transcript for ticket ${Interaction.channel.id}`,
+          content: Content,
           branch: "main"
         });
-        githubUrl = `https://${process.env.GITHUB_USER}.github.io/tickets/${interaction.channel.id}/index.html`;
+        GithubUrl = `https://${process.env.GITHUB_USER}.github.io/tickets/${Interaction.channel.id}/index.html`;
       } catch (err) { console.error("GitHub upload failed:", err); }
 
-      const closeEmbed = new EmbedBuilder()
+      const CloseEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
         .addFields(
-          { name: "Ticket", value: interaction.channel.name, inline: true },
-          { name: "Closed by", value: user.tag, inline: true },
-          { name: "Channel ID", value: interaction.channel.id, inline: true }
+          { name: "Ticket", value: Interaction.channel.name, inline: true },
+          { name: "Closed by", value: User.tag, inline: true },
+          { name: "Channel ID", value: Interaction.channel.id, inline: true }
         )
         .setColor("Red")
         .setTimestamp();
 
-      const transcriptButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(githubUrl || "https://example.com")
+      const TranscriptButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(GithubUrl || "https://example.com")
       );
 
-      await logChannel.send({ embeds: [closeEmbed], components: [transcriptButton] });
+      await LogChannel.send({ embeds: [CloseEmbed], components: [TranscriptButton] });
 
-      const createdAt = ticketData.createdAt ? new Date(ticketData.createdAt) : new Date();
-      const closedAt = new Date();
-      const diffDays = Math.round((closedAt - createdAt) / (1000 * 60 * 60 * 24));
-      const categoryType = getCategoryType(interaction.channel.parentId);
-      const ticketNumber = ticketData.ticketNumber;
+      const CreatedAt = TicketData.createdAt ? new Date(TicketData.createdAt) : new Date();
+      const ClosedAt = new Date();
+      const DiffDays = Math.round((ClosedAt - CreatedAt) / (1000 * 60 * 60 * 24));
+      const CategoryType = GetCategoryType(Interaction.channel.parentId);
+      const TicketNumber = TicketData.ticketNumber;
 
-      const dmEmbed = new EmbedBuilder()
+      const DmEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
         .setColor("Red")
         .addFields(
-          { name: "Ticket", value: `${categoryType} #${ticketNumber}`, inline: false },
-          { name: "Created At", value: createdAt.toLocaleString(), inline: true },
-          { name: "Closed At", value: `${closedAt.toLocaleString()} (${diffDays} day${diffDays !== 1 ? "s" : ""})`, inline: true },
-          { name: "Closed By", value: user.tag, inline: false }
+          { name: "Ticket", value: `${CategoryType} #${TicketNumber}`, inline: false },
+          { name: "Created At", value: CreatedAt.toLocaleString(), inline: true },
+          { name: "Closed At", value: `${ClosedAt.toLocaleString()} (${DiffDays} day${DiffDays !== 1 ? "s" : ""})`, inline: true },
+          { name: "Closed By", value: User.tag, inline: false }
         );
 
-      const dmButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(githubUrl || "https://example.com")
+      const DmButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(GithubUrl || "https://example.com")
       );
 
       try {
-        const owner = await client.users.fetch(ticketData.ownerId);
-        await owner.send({ embeds: [dmEmbed], components: [dmButton] });
+        const Owner = await Client.users.fetch(TicketData.ownerId);
+        await Owner.send({ embeds: [DmEmbed], components: [DmButton] });
       } catch (err) { console.error("Failed to DM user:", err); }
 
-      delete activeTickets[interaction.channel.id];
-      await saveTickets(activeTickets);
-      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and GitHub." });
-      await interaction.message.edit({ components: [] });
-      setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
+      delete ActiveTickets[Interaction.channel.id];
+      await SaveTickets(ActiveTickets);
+      await Interaction.editReply({ content: "Ticket closed, transcript saved to log channel and GitHub." });
+      await Interaction.message.edit({ components: [] });
+      setTimeout(() => Interaction.channel.delete().catch(() => {}), 2000);
       return;
     }
 
-    if (interaction.customId === "close_ticket") {
-      const confirmEmbed = new EmbedBuilder()
+    if (Interaction.customId === "close_ticket") {
+      const ConfirmEmbed = new EmbedBuilder()
         .setTitle("Confirm Ticket Closure")
         .setDescription("Are you sure you want to close this ticket?")
         .setColor("Red");
-      const confirmButtons = new ActionRowBuilder().addComponents(
+      const ConfirmButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
       );
-      await interaction.reply({ embeds: [confirmEmbed], components: [confirmButtons], ephemeral: false });
+      await Interaction.reply({ embeds: [ConfirmEmbed], components: [ConfirmButtons], ephemeral: false });
       return;
     }
 
-    if (interaction.customId === "claim_ticket") {
-      if (!ticketData) return interaction.reply({ content: "Ticket data not found.", ephemeral: true });
-      if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
+    if (Interaction.customId === "claim_ticket") {
+      if (!TicketData) return Interaction.reply({ content: "Ticket data not found.", ephemeral: true });
+      if (TicketData.claimerId) return Interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
-      const member = await guild.members.fetch(user.id);
-      const allowedRoles = [
+      const Member = await Guild.members.fetch(User.id);
+      const AllowedRoles = [
         "1403777886661644398",
         "1403777609522745485",
         "1403777335416848537",
@@ -212,96 +212,103 @@ export default {
         "1423280211239243826"
       ];
 
-      const hasRole = member.roles.cache.some(r => allowedRoles.includes(r.id));
-      if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && !hasRole) return interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
+      const HasRole = Member.roles.cache.some(r => AllowedRoles.includes(r.id));
+      if (!Member.permissions.has(PermissionsBitField.Flags.Administrator) && !HasRole) return Interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
 
-      ticketData.claimerId = user.id;
-      activeTickets[interaction.channel.id] = ticketData;
-      await saveTickets(activeTickets);
+      TicketData.claimerId = User.id;
+      ActiveTickets[Interaction.channel.id] = TicketData;
+      await SaveTickets(ActiveTickets);
 
-      const fetchedMessages = await interaction.channel.messages.fetch({ limit: 10 });
-      const ticketMessage = fetchedMessages.find(m => m.components.length > 0);
-      if (ticketMessage) {
-        const updatedRow = new ActionRowBuilder().addComponents(
+      const FetchedMessages = await Interaction.channel.messages.fetch({ limit: 10 });
+      const TicketMessage = FetchedMessages.find(m => m.components.length > 0);
+      if (TicketMessage) {
+        const UpdatedRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
         );
-        await ticketMessage.edit({ components: [updatedRow] });
+        await TicketMessage.edit({ components: [UpdatedRow] });
       }
 
-      const category = interaction.channel.parent ? guild.channels.cache.get(interaction.channel.parentId) : null;
-      if (category) await syncPermissions(interaction.channel, category, ticketData.ownerId);
+      const Category = Interaction.channel.parent ? Guild.channels.cache.get(Interaction.channel.parentId) : null;
+      if (Category) await SyncPermissions(Interaction.channel, Category, TicketData.ownerId);
 
-      await interaction.channel.permissionOverwrites.edit(ticketData.ownerId, {
+      await Interaction.channel.permissionOverwrites.edit(TicketData.ownerId, {
         ViewChannel: true,
         SendMessages: true,
         AttachFiles: true
       });
 
-      await interaction.channel.permissionOverwrites.edit(ticketData.claimerId, {
+      await Interaction.channel.permissionOverwrites.edit(TicketData.claimerId, {
         ViewChannel: true,
         SendMessages: true
       });
 
-      await interaction.reply({ content: `Ticket claimed by ${user.tag}`, ephemeral: false });
+      await Interaction.reply({ content: `Ticket claimed by ${User.tag}`, ephemeral: false });
       return;
     }
 
-    const TICKET_CATEGORIES = {
-      report: process.env.REPORT_CATEGORY,
-      appeal: process.env.APPEAL_CATEGORY,
-      inquiry: process.env.INQUIRY_CATEGORY
+    const TicketCategories = {
+      Report: process.env.REPORT_CATEGORY,
+      Appeal: process.env.APPEAL_CATEGORY,
+      Inquiry: process.env.INQUIRY_CATEGORY
     };
 
-    let categoryId, topic, type;
-    switch (interaction.customId) {
-      case "report_ticket": categoryId = TICKET_CATEGORIES.report; topic = "Report a User"; type = "Report"; break;
-      case "appeal_ticket": categoryId = TICKET_CATEGORIES.appeal; topic = "Appeal a Punishment"; type = "Appeal"; break;
-      case "inquiry_ticket": categoryId = TICKET_CATEGORIES.inquiry; topic = "Inquiries"; type = "Inquiry"; break;
+    let CategoryId, Topic, Type;
+    switch (Interaction.customId) {
+      case "report_ticket": CategoryId = TicketCategories.Report; Topic = "Report a User"; Type = "Report"; break;
+      case "appeal_ticket": CategoryId = TicketCategories.Appeal; Topic = "Appeal a Punishment"; Type = "Appeal"; break;
+      case "inquiry_ticket": CategoryId = TicketCategories.Inquiry; Topic = "Inquiries"; Type = "Inquiry"; break;
       default: return;
     }
 
-    const existing = guild.channels.cache.find(c => c.name.startsWith(`ticket-${user.username.toLowerCase()}`));
-    if (existing) return interaction.reply({ content: "You already have an open ticket.", ephemeral: true });
+    const ExistingTicket = Object.values(ActiveTickets).find(
+      t => t.ownerId === User.id && t.categoryType === Type
+    );
+    if (ExistingTicket) {
+      return Interaction.reply({
+        content: `You already have an open ${Type} ticket. Please close it before creating a new one.`,
+        ephemeral: true
+      });
+    }
 
-    const channel = await guild.channels.create({
-      name: `ticket-${user.username}`,
+    const Channel = await Guild.channels.create({
+      name: `ticket-${User.username}`,
       type: ChannelType.GuildText,
-      parent: categoryId,
-      topic: `${topic} | Opened by ${user.tag}`
+      parent: CategoryId,
+      topic: `${Topic} | Opened by ${User.tag}`
     });
 
-    const category = guild.channels.cache.get(categoryId);
-    if (category) await syncPermissions(channel, category, user.id);
+    const Category = Guild.channels.cache.get(CategoryId);
+    if (Category) await SyncPermissions(Channel, Category, User.id);
 
-    await channel.permissionOverwrites.edit(user.id, {
+    await Channel.permissionOverwrites.edit(User.id, {
       ViewChannel: true,
       SendMessages: true,
       AttachFiles: true
     });
 
-    client.ticketCounts[type] += 1;
-    const ticketNumber = client.ticketCounts[type];
+    Client.TicketCounts[Type] += 1;
+    const TicketNumber = Client.TicketCounts[Type];
 
-    activeTickets[channel.id] = {
-      ownerId: user.id,
+    ActiveTickets[Channel.id] = {
+      ownerId: User.id,
       claimerId: null,
       createdAt: Date.now(),
-      categoryType: type,
-      ticketNumber
+      categoryType: Type,
+      ticketNumber: TicketNumber
     };
-    await saveTickets(activeTickets);
+    await SaveTickets(ActiveTickets);
 
-    const buttons = new ActionRowBuilder().addComponents(
+    const Buttons = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("claim_ticket").setLabel("Claim Ticket").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
     );
 
-    const ticketEmbed = new EmbedBuilder()
-      .setTitle(`${topic} #${ticketNumber}`)
+    const TicketEmbed = new EmbedBuilder()
+      .setTitle(`${Topic} #${TicketNumber}`)
       .setDescription("A staff member will be with you shortly.\nPlease describe your issue below.")
       .setColor("Blue");
 
-    await channel.send({ content: `${user}`, embeds: [ticketEmbed], components: [buttons] });
-    await interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
+    await Channel.send({ content: `${User}`, embeds: [TicketEmbed], components: [Buttons] });
+    await Interaction.reply({ content: `Ticket created: ${Channel}`, ephemeral: true });
   }
 };
