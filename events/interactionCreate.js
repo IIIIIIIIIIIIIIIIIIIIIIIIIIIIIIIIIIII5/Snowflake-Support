@@ -8,9 +8,9 @@ const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
 const OctokitClient = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
 async function GetTickets() {
-  const res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
-  const data = await res.json();
-  return data.record || {};
+  const Res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
+  const Data = await Res.json();
+  return Data.record || {};
 }
 
 async function SaveTickets(Tickets) {
@@ -22,7 +22,7 @@ async function SaveTickets(Tickets) {
 }
 
 function GenerateTranscriptHtml(ChannelName, Messages) {
-  let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${ChannelName}</title><style>
+  let Html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${ChannelName}</title><style>
   body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px;}
   .message{margin-bottom:15px;padding:10px;border-radius:5px;background:#222;}
   .author{font-weight:bold;color:#fff;}
@@ -30,21 +30,21 @@ function GenerateTranscriptHtml(ChannelName, Messages) {
   img{max-width:300px;margin-top:5px;border-radius:5px;}
   .timestamp{font-size:0.8em;color:#aaa;margin-top:3px;}
   </style></head><body><h1>Transcript for ${ChannelName}</h1>`;
-  Messages.reverse().forEach(msg => {
-    html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`;
-    msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`);
-    html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div></div>`;
+  Messages.reverse().forEach(Msg => {
+    Html += `<div class="message"><div class="author">${Msg.author.tag}</div><div class="content">${Msg.content || ""}</div>`;
+    Msg.attachments.forEach(A => Html += `<img src="${A.url}" alt="Attachment">`);
+    Html += `<div class="timestamp">${new Date(Msg.createdTimestamp).toLocaleString()}</div></div>`;
   });
-  html += `</body></html>`;
-  return html;
+  Html += `</body></html>`;
+  return Html;
 }
 
 async function SyncPermissions(Channel, Category, OwnerId) {
   if (!Category) return;
-  const Overwrites = Category.permissionOverwrites.cache.map(po => ({
-    id: po.id,
-    allow: new PermissionsBitField(po.allow).bitfield,
-    deny: new PermissionsBitField(po.deny).bitfield
+  const Overwrites = Category.permissionOverwrites.cache.map(Po => ({
+    id: Po.id,
+    allow: new PermissionsBitField(Po.allow).bitfield,
+    deny: new PermissionsBitField(Po.deny).bitfield
   }));
   await Channel.permissionOverwrites.set(Overwrites);
   await Channel.permissionOverwrites.edit(OwnerId, {
@@ -70,10 +70,10 @@ export default {
 
     if (!Client.TicketCounts) Client.TicketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
 
-    for (const t of Object.values(ActiveTickets)) {
-      if (t.categoryType && typeof t.ticketNumber === "number") {
-        if (!Client.TicketCounts[t.categoryType] || Client.TicketCounts[t.categoryType] < t.ticketNumber) {
-          Client.TicketCounts[t.categoryType] = t.ticketNumber;
+    for (const T of Object.values(ActiveTickets)) {
+      if (T.categoryType && typeof T.ticketNumber === "number") {
+        if (!Client.TicketCounts[T.categoryType] || Client.TicketCounts[T.categoryType] < T.ticketNumber) {
+          Client.TicketCounts[T.categoryType] = T.ticketNumber;
         }
       }
     }
@@ -82,7 +82,7 @@ export default {
       const Command = Client.commands.get(Interaction.commandName);
       if (!Command) return;
       try { await Command.execute(Interaction, Client); } 
-      catch (err) { console.error(err); Interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+      catch (Err) { console.error(Err); Interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
@@ -101,7 +101,7 @@ export default {
           .setColor("Yellow")
           .setDescription(`Your ticket has been moved from **${OldCategory ? OldCategory.name : "Unknown"}** to **${NewCategory ? NewCategory.name : "Unknown"}**.`);
         await Owner.send({ embeds: [MoveEmbed] });
-      } catch (err) { console.error("Failed to DM ticket owner:", err); }
+      } catch (Err) { console.error("Failed to DM ticket owner:", Err); }
       return Interaction.reply({ content: `Ticket moved to <#${SelectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -134,7 +134,7 @@ export default {
           branch: "main"
         });
         GithubUrl = `https://${process.env.GITHUB_USER}.github.io/tickets/${Interaction.channel.id}/index.html`;
-      } catch (err) { console.error("GitHub upload failed:", err); }
+      } catch (Err) { console.error("GitHub upload failed:", Err); }
 
       const CloseEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
@@ -175,7 +175,7 @@ export default {
       try {
         const Owner = await Client.users.fetch(TicketData.ownerId);
         await Owner.send({ embeds: [DmEmbed], components: [DmButton] });
-      } catch (err) { console.error("Failed to DM user:", err); }
+      } catch (Err) { console.error("Failed to DM user:", Err); }
 
       delete ActiveTickets[Interaction.channel.id];
       await SaveTickets(ActiveTickets);
@@ -212,7 +212,7 @@ export default {
         "1423280211239243826"
       ];
 
-      const HasRole = Member.roles.cache.some(r => AllowedRoles.includes(r.id));
+      const HasRole = Member.roles.cache.some(R => AllowedRoles.includes(R.id));
       if (!Member.permissions.has(PermissionsBitField.Flags.Administrator) && !HasRole) return Interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
 
       TicketData.claimerId = User.id;
@@ -220,7 +220,7 @@ export default {
       await SaveTickets(ActiveTickets);
 
       const FetchedMessages = await Interaction.channel.messages.fetch({ limit: 10 });
-      const TicketMessage = FetchedMessages.find(m => m.components.length > 0);
+      const TicketMessage = FetchedMessages.find(M => M.components.length > 0);
       if (TicketMessage) {
         const UpdatedRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
@@ -261,11 +261,11 @@ export default {
     }
 
     const ExistingTicket = Object.values(ActiveTickets).find(
-      t => t.ownerId === User.id && t.categoryType === Type
+      T => T.ownerId === User.id && T.categoryType === Type
     );
     if (ExistingTicket) {
       return Interaction.reply({
-        content: `You already have an open ${Type} ticket. Please close it before creating a new one.`,
+        content: `You already have an open ${Type} ticket in this category. Please close it before creating a new one.`,
         ephemeral: true
       });
     }
