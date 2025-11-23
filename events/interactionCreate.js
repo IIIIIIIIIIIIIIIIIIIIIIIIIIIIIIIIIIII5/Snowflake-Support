@@ -64,19 +64,24 @@ async function GenerateTranscriptHtml(channelName, messages) {
 <h1>Transcript for #${channelName}</h1>`;
 
   for (const msg of messages.reverse()) {
+    const author = msg.author ?? { username: "Unknown", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
     const timestamp = new Date(msg.createdTimestamp).toLocaleString();
 
     html += `
 <div class="message">
-  <img class="avatar" src="${msg.author.displayAvatarURL({ format: "png", size: 128 })}">
+  <img class="avatar" src="${author.displayAvatarURL({ format: "png", size: 128 })}">
   <div class="content">
-    <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
+    <div class="header">${author.tag || author.username} <span class="timestamp">${timestamp}</span></div>
     <div class="text">${msg.content || ""}</div>
 `;
 
-    for (const att of msg.attachments.values()) {
-      const r2Url = await UploadAttachmentToR2(msg.channelId, att);
-      html += `<img class="attachment" src="${r2Url}">`;
+    if (msg.attachments.size > 0) {
+      const attachments = await Promise.all(
+        msg.attachments.map(att => UploadAttachmentToR2(msg.channelId, att))
+      );
+      for (const url of attachments) {
+        html += `<img class="attachment" src="${url}">`;
+      }
     }
 
     html += `</div></div>`;
