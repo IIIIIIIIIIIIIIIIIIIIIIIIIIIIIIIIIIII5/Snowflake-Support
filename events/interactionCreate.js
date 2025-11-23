@@ -210,7 +210,7 @@ export default {
 
       delete activeTickets[interaction.channel.id];
       await SaveTickets(activeTickets);
-      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and Cloudflare R2." });
+      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel." });
       await interaction.message.edit({ components: [] });
       setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
       return;
