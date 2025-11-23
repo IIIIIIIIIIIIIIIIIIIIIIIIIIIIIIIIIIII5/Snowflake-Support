@@ -10,7 +10,7 @@
   "dependencies": {
     "discord.js": "^14.15.0",
     "node-fetch": "^3.3.2",
-    "aws-sdk": "^2.1436.0"
+    "@aws-sdk/client-s3": "^3.373.0"
   },
   "engines": {
     "node": ">=18.0.0"
