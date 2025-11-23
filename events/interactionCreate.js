@@ -70,6 +70,7 @@ function GenerateTranscriptHtml(channelName, messages) {
 
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
+
   await R2.send(new PutObjectCommand({
     Bucket: process.env.R2Bucket,
     Key: key,
@@ -77,7 +78,7 @@ async function UploadTranscript(channelId, html) {
     ContentType: "text/html"
   }));
 
-  return `${process.env.R2PublicBase}/${process.env.R2Bucket}/${key}`;
+  return `${process.env.R2PublicBase}/${key}`;
 }
 
 function GetCategoryType(categoryId) {
