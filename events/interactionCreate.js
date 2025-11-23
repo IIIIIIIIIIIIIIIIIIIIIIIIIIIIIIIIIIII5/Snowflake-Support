@@ -27,14 +27,29 @@ async function SaveTickets(tickets) {
   });
 }
 
-function GenerateTranscriptHtml(channelName, messages) {
+async function UploadAttachmentToR2(channelId, attachment) {
+  const file = await fetch(attachment.url).then(r => r.arrayBuffer());
+  const ext = attachment.name?.split(".").pop() || "dat";
+  const key = `${channelId}/${attachment.id}.${ext}`;
+
+  await R2.send(new PutObjectCommand({
+    Bucket: process.env.R2Bucket,
+    Key: key,
+    Body: Buffer.from(file),
+    ContentType: attachment.contentType || "application/octet-stream"
+  }));
+
+  return `${process.env.R2PublicBase}/${key}`;
+}
+
+async function GenerateTranscriptHtml(channelName, messages) {
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Transcript - ${channelName}</title>
 <style>
-  body { font-family: 'Arial', sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
+  body { font-family: Arial, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
   h1 { color: #fff; }
   .message { display: flex; margin-bottom: 15px; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
@@ -48,21 +63,24 @@ function GenerateTranscriptHtml(channelName, messages) {
 <body>
 <h1>Transcript for #${channelName}</h1>`;
 
-  messages.reverse().forEach(msg => {
+  for (const msg of messages.reverse()) {
     const timestamp = new Date(msg.createdTimestamp).toLocaleString();
+
     html += `
 <div class="message">
-  <img class="avatar" src="${msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${msg.author.tag}">
+  <img class="avatar" src="${msg.author.displayAvatarURL({ format: "png", size: 128 })}">
   <div class="content">
     <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
-    <div class="text">${msg.content || ''}</div>`;
+    <div class="text">${msg.content || ""}</div>
+`;
 
-    msg.attachments.forEach(att => {
-      html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
-    });
+    for (const att of msg.attachments.values()) {
+      const r2Url = await UploadAttachmentToR2(msg.channelId, att);
+      html += `<img class="attachment" src="${r2Url}">`;
+    }
 
     html += `</div></div>`;
-  });
+  }
 
   html += `</body></html>`;
   return html;
@@ -124,7 +142,7 @@ export default {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       try { await command.execute(interaction, client); } 
-      catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+      catch { interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
@@ -143,7 +161,7 @@ export default {
           .setColor("Yellow")
           .setDescription(`Your ticket has been moved from **${oldCategory ? oldCategory.name : "Unknown"}** to **${newCategory ? newCategory.name : "Unknown"}**.`);
         await owner.send({ embeds: [moveEmbed] });
-      } catch (err) {}
+      } catch {}
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -159,10 +177,10 @@ export default {
       if (!confirmed) { await interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await interaction.editReply({ content: "Cancelled ticket closure." }); return; }
 
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
-      const html = GenerateTranscriptHtml(interaction.channel.name, messages);
+      const html = await GenerateTranscriptHtml(interaction.channel.name, messages);
       let transcriptUrl = "";
       try { transcriptUrl = await UploadTranscript(interaction.channel.id, html); } 
-      catch (err) { transcriptUrl = "https://example.com"; }
+      catch { transcriptUrl = "https://example.com"; }
 
       const closeEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
@@ -200,7 +218,7 @@ export default {
         new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(transcriptUrl)
       );
 
-      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } catch (err) {}
+      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } catch {}
 
       delete activeTickets[interaction.channel.id];
       await SaveTickets(activeTickets);
