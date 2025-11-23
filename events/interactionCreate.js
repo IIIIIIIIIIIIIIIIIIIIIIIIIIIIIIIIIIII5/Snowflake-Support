@@ -27,7 +27,7 @@ async function SaveTickets(tickets) {
   });
 }
 
-async function UploadAttachmentToR2(channelId, attachment) {
+async function UploadAttachment(channelId, attachment) {
   const file = await fetch(attachment.url).then(r => r.arrayBuffer());
   const ext = attachment.name?.split(".").pop() || "dat";
   const key = `${channelId}/${attachment.id}.${ext}`;
@@ -79,7 +79,7 @@ async function GenerateTranscriptHtml(channelName, messages) {
 
     if (msg.attachments && msg.attachments.size > 0) {
       const attachments = await Promise.all(
-        Array.from(msg.attachments.values()).map(att => UploadAttachmentToR2(msg.channelId, att))
+        Array.from(msg.attachments.values()).map(att => UploadAttachment(msg.channelId, att))
       );
       for (const url of attachments) html += `<img class="attachment" src="${url}">`;
     }
