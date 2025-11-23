@@ -70,19 +70,14 @@ function GenerateTranscriptHtml(channelName, messages) {
 
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
-  const command = new PutObjectCommand({
+  await R2.send(new PutObjectCommand({
     Bucket: process.env.R2Bucket,
     Key: key,
     Body: html,
     ContentType: "text/html"
-  });
-  try {
-    await R2.send(command);
-    return `${process.env.R2PublicBase}/${key}`;
-  } catch (err) {
-    console.error("R2 upload failed:", err);
-    return "https://example.com";
-  }
+  }));
+
+  return `${process.env.R2PublicBase}/${process.env.R2Bucket}/${key}`;
 }
 
 function GetCategoryType(categoryId) {
