@@ -143,7 +143,7 @@ export default {
           .setColor("Yellow")
           .setDescription(`Your ticket has been moved from **${oldCategory ? oldCategory.name : "Unknown"}** to **${newCategory ? newCategory.name : "Unknown"}**.`);
         await owner.send({ embeds: [moveEmbed] });
-      } catch (err) { console.error("Failed to DM ticket owner:", err); }
+      } catch (err) {}
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -162,7 +162,7 @@ export default {
       const html = GenerateTranscriptHtml(interaction.channel.name, messages);
       let transcriptUrl = "";
       try { transcriptUrl = await UploadTranscript(interaction.channel.id, html); } 
-      catch (err) { console.error("R2 upload failed:", err); transcriptUrl = "https://example.com"; }
+      catch (err) { transcriptUrl = "https://example.com"; }
 
       const closeEmbed = new EmbedBuilder()
         .setTitle("Ticket Closed")
@@ -200,8 +200,7 @@ export default {
         new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(transcriptUrl)
       );
 
-      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } 
-      catch (err) { console.error("Failed to DM user:", err); }
+      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } catch (err) {}
 
       delete activeTickets[interaction.channel.id];
       await SaveTickets(activeTickets);
