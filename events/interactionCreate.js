@@ -27,75 +27,42 @@ async function SaveTickets(tickets) {
   });
 }
 
-async function UploadAttachmentToR2(channelId, attachment) {
-  const file = await fetch(attachment.url).then(r => r.arrayBuffer());
-  const ext = attachment.name?.split(".").pop() || "dat";
-  const key = `${channelId}/${attachment.id}.${ext}`;
-  await R2.send(new PutObjectCommand({
-    Bucket: process.env.R2Bucket,
-    Key: key,
-    Body: Buffer.from(file),
-    ContentType: attachment.contentType || "application/octet-stream"
-  }));
-  return `${process.env.R2PublicBase}/${key}`;
-}
-
-async function GenerateTranscriptHtml(channelName, messages, client) {
+function GenerateTranscriptHtml(channelName, messages) {
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Transcript - ${channelName}</title>
 <style>
-  body { font-family: "Segoe UI", Arial, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
+  body { font-family: 'Arial', sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
   h1 { color: #fff; }
   .message { display: flex; margin-bottom: 15px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
   .content { background: #2f3136; padding: 10px; border-radius: 5px; flex: 1; }
   .header { font-weight: bold; color: #fff; margin-bottom: 3px; }
   .timestamp { font-size: 0.75em; color: #72767d; margin-left: 5px; }
-  .text { color: #dcddde; white-space: pre-wrap; word-wrap: break-word; }
-  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; display:block; }
-  .embed { border-left: 4px solid #4f545c; background: #2f3136; padding: 8px; margin-top: 5px; border-radius: 3px; }
+  .text { color: #dcddde; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; }
 </style>
 </head>
 <body>
 <h1>Transcript for #${channelName}</h1>`;
 
-  for (const msg of messages.reverse()) {
-    let author = msg.author;
-    if (!author && msg.member) author = msg.member.user;
-    if (!author && msg.authorId) {
-      try { author = await client.users.fetch(msg.authorId); } catch { author = null; }
-    }
-    if (!author) author = { username: "Unknown", tag: "Unknown#0000", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
-    const timestamp = msg.createdAt ? msg.createdAt.toLocaleString() : "Unknown Date";
-    const avatarUrl = author.displayAvatarURL?.({ format: "png", size: 128 }) || "https://i.imgur.com/6VBx3io.png";
-
-    html += `<div class="message">
-  <img class="avatar" src="${avatarUrl}">
+  messages.reverse().forEach(msg => {
+    const timestamp = new Date(msg.createdTimestamp).toLocaleString();
+    html += `
+<div class="message">
+  <img class="avatar" src="${msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${msg.author.tag}">
   <div class="content">
-    <div class="header">${author.tag || author.username} <span class="timestamp">${timestamp}</span></div>
-    <div class="text">${msg.content || ""}</div>`;
+    <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
+    <div class="text">${msg.content || ''}</div>`;
 
-    if (msg.attachments && msg.attachments.size > 0) {
-      const attachments = await Promise.all(Array.from(msg.attachments.values()).map(att => UploadAttachmentToR2(msg.channelId, att)));
-      for (const url of attachments) html += `<img class="attachment" src="${url}">`;
-    }
-
-    if (msg.embeds && msg.embeds.length > 0) {
-      for (const embed of msg.embeds) {
-        html += `<div class="embed">`;
-        if (embed.title) html += `<div class="header">${embed.title}</div>`;
-        if (embed.description) html += `<div class="text">${embed.description}</div>`;
-        if (embed.image?.url) html += `<img class="attachment" src="${embed.image.url}">`;
-        if (embed.thumbnail?.url) html += `<img class="attachment" src="${embed.thumbnail.url}">`;
-        html += `</div>`;
-      }
-    }
+    msg.attachments.forEach(att => {
+      html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
+    });
 
     html += `</div></div>`;
-  }
+  });
 
   html += `</body></html>`;
   return html;
@@ -103,13 +70,20 @@ async function GenerateTranscriptHtml(channelName, messages, client) {
 
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
-  await R2.send(new PutObjectCommand({
+  const command = new PutObjectCommand({
     Bucket: process.env.R2Bucket,
     Key: key,
     Body: html,
-    ContentType: "text/html"
-  }));
-  return `${process.env.R2PublicBase}/${key}`;
+    ContentType: "text/html",
+    ACL: "public-read"
+  });
+  try {
+    await R2.send(command);
+    return `${process.env.R2PublicBase}/${key}`;
+  } catch (err) {
+    console.error("R2 upload failed:", err);
+    return "https://example.com";
+  }
 }
 
 function GetCategoryType(categoryId) {
@@ -127,7 +101,11 @@ async function SyncPermissions(channel, category, ownerId) {
     deny: new PermissionsBitField(po.deny).bitfield
   }));
   await channel.permissionOverwrites.set(overwrites);
-  await channel.permissionOverwrites.edit(ownerId, { ViewChannel: true, SendMessages: true, AttachFiles: true });
+  await channel.permissionOverwrites.edit(ownerId, {
+    ViewChannel: true,
+    SendMessages: true,
+    AttachFiles: true
+  });
 }
 
 export default {
@@ -136,17 +114,22 @@ export default {
     let activeTickets = await GetTickets();
     const guild = interaction.guild;
     const user = interaction.user;
+
     if (!client.TicketCounts) client.TicketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
+
     for (const t of Object.values(activeTickets)) {
       if (t.categoryType && typeof t.ticketNumber === "number") {
-        if (!client.TicketCounts[t.categoryType] || client.TicketCounts[t.categoryType] < t.ticketNumber) client.TicketCounts[t.categoryType] = t.ticketNumber;
+        if (!client.TicketCounts[t.categoryType] || client.TicketCounts[t.categoryType] < t.ticketNumber) {
+          client.TicketCounts[t.categoryType] = t.ticketNumber;
+        }
       }
     }
 
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
-      try { await command.execute(interaction, client); } catch { interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+      try { await command.execute(interaction, client); } 
+      catch (err) { console.error(err); interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
@@ -160,10 +143,12 @@ export default {
       if (ticketData) await SyncPermissions(interaction.channel, newCategory, ticketData.ownerId);
       try {
         const owner = await client.users.fetch(ticketData.ownerId);
-        const moveEmbed = new EmbedBuilder().setTitle("Ticket Moved").setColor("Yellow")
+        const moveEmbed = new EmbedBuilder()
+          .setTitle("Ticket Moved")
+          .setColor("Yellow")
           .setDescription(`Your ticket has been moved from **${oldCategory ? oldCategory.name : "Unknown"}** to **${newCategory ? newCategory.name : "Unknown"}**.`);
         await owner.send({ embeds: [moveEmbed] });
-      } catch {}
+      } catch (err) { console.error("Failed to DM ticket owner:", err); }
       return interaction.reply({ content: `Ticket moved to <#${selectedCategoryId}> and synced permissions successfully.`, ephemeral: true });
     }
 
@@ -179,16 +164,20 @@ export default {
       if (!confirmed) { await interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await interaction.editReply({ content: "Cancelled ticket closure." }); return; }
 
       const messages = await interaction.channel.messages.fetch({ limit: 100 });
-      const html = await GenerateTranscriptHtml(interaction.channel.name, messages, client);
+      const html = GenerateTranscriptHtml(interaction.channel.name, messages);
       let transcriptUrl = "";
-      try { transcriptUrl = await UploadTranscript(interaction.channel.id, html); } catch { transcriptUrl = "https://example.com"; }
+      try { transcriptUrl = await UploadTranscript(interaction.channel.id, html); } 
+      catch (err) { console.error("R2 upload failed:", err); transcriptUrl = "https://example.com"; }
 
-      const closeEmbed = new EmbedBuilder().setTitle("Ticket Closed")
+      const closeEmbed = new EmbedBuilder()
+        .setTitle("Ticket Closed")
         .addFields(
           { name: "Ticket", value: interaction.channel.name, inline: true },
           { name: "Closed by", value: user.tag, inline: true },
           { name: "Channel ID", value: interaction.channel.id, inline: true }
-        ).setColor("Red").setTimestamp();
+        )
+        .setColor("Red")
+        .setTimestamp();
 
       const transcriptButton = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(transcriptUrl)
@@ -202,7 +191,9 @@ export default {
       const categoryType = GetCategoryType(interaction.channel.parentId);
       const ticketNumber = ticketData.ticketNumber;
 
-      const dmEmbed = new EmbedBuilder().setTitle("Ticket Closed").setColor("Red")
+      const dmEmbed = new EmbedBuilder()
+        .setTitle("Ticket Closed")
+        .setColor("Red")
         .addFields(
           { name: "Ticket", value: `${categoryType} #${ticketNumber}`, inline: false },
           { name: "Created At", value: createdAt.toLocaleString(), inline: true },
@@ -214,18 +205,22 @@ export default {
         new ButtonBuilder().setLabel("Transcript").setStyle(ButtonStyle.Link).setURL(transcriptUrl)
       );
 
-      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } catch {}
+      try { const owner = await client.users.fetch(ticketData.ownerId); await owner.send({ embeds: [dmEmbed], components: [dmButton] }); } 
+      catch (err) { console.error("Failed to DM user:", err); }
 
       delete activeTickets[interaction.channel.id];
       await SaveTickets(activeTickets);
-      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel." });
+      await interaction.editReply({ content: "Ticket closed, transcript saved to log channel and Cloudflare R2." });
       await interaction.message.edit({ components: [] });
       setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
       return;
     }
 
     if (interaction.customId === "close_ticket") {
-      const confirmEmbed = new EmbedBuilder().setTitle("Confirm Ticket Closure").setDescription("Are you sure you want to close this ticket?").setColor("Red");
+      const confirmEmbed = new EmbedBuilder()
+        .setTitle("Confirm Ticket Closure")
+        .setDescription("Are you sure you want to close this ticket?")
+        .setColor("Red");
       const confirmButtons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("confirm_close_yes").setLabel("Yes, close it").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("confirm_close_no").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
@@ -239,7 +234,14 @@ export default {
       if (ticketData.claimerId) return interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
       const member = await guild.members.fetch(user.id);
-      const allowedRoles = ["1403777886661644398","1403777609522745485","1403777335416848537","1403777452517494784","1403777162460397649","1423280211239243826"];
+      const allowedRoles = [
+        "1403777886661644398",
+        "1403777609522745485",
+        "1403777335416848537",
+        "1403777452517494784",
+        "1403777162460397649",
+        "1423280211239243826"
+      ];
       const hasRole = member.roles.cache.some(r => allowedRoles.includes(r.id));
       if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && !hasRole) return interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
 
@@ -250,7 +252,9 @@ export default {
       const fetchedMessages = await interaction.channel.messages.fetch({ limit: 10 });
       const ticketMessage = fetchedMessages.find(m => m.components.length > 0);
       if (ticketMessage) {
-        const updatedRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger));
+        const updatedRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
+        );
         await ticketMessage.edit({ components: [updatedRow] });
       }
 
@@ -264,7 +268,12 @@ export default {
       return;
     }
 
-    const ticketCategories = { Report: process.env.REPORT_CATEGORY, Appeal: process.env.APPEAL_CATEGORY, Inquiry: process.env.INQUIRY_CATEGORY };
+    const ticketCategories = {
+      Report: process.env.REPORT_CATEGORY,
+      Appeal: process.env.APPEAL_CATEGORY,
+      Inquiry: process.env.INQUIRY_CATEGORY
+    };
+
     let categoryId, topic, type;
     switch (interaction.customId) {
       case "report_ticket": categoryId = ticketCategories.Report; topic = "Report a User"; type = "Report"; break;
