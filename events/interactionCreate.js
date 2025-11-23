@@ -74,8 +74,7 @@ async function UploadTranscript(channelId, html) {
     Bucket: process.env.R2Bucket,
     Key: key,
     Body: html,
-    ContentType: "text/html",
-    ACL: "public-read"
+    ContentType: "text/html"
   });
   try {
     await R2.send(command);
