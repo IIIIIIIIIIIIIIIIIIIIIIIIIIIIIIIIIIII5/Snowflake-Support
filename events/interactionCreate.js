@@ -28,47 +28,54 @@ async function SaveTickets(tickets) {
 }
 
 function GenerateTranscriptHtml(channelName, messages) {
-  let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Transcript - ${channelName}</title>
-<style>
-  body { font-family: 'Arial', sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
-  h1 { color: #fff; }
-  .message { display: flex; margin-bottom: 15px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
-  .content { background: #2f3136; padding: 10px; border-radius: 5px; flex: 1; }
-  .header { font-weight: bold; color: #fff; margin-bottom: 3px; }
-  .timestamp { font-size: 0.75em; color: #72767d; margin-left: 5px; }
-  .text { color: #dcddde; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
-  img.attachment, video.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; display: block; }
-  .embed { border-left: 4px solid #7289da; padding: 5px 10px; margin-top: 5px; background: #2c2f33; border-radius: 5px; }
-  .embed-title { font-weight: bold; color: #00b0f4; }
-  .embed-description { color: #dcddde; margin-top: 3px; }
-  .embed-field { margin-top: 3px; }
-  .embed-field-name { font-weight: bold; color: #ffcc00; }
-  .embed-field-value { color: #dcddde; margin-left: 5px; }
-  .sticker { width: 100px; height: 100px; margin-top: 5px; }
-</style>
-</head>
-<body>
-<h1>Transcript for #${channelName}</h1>`;
+  const css = `
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
+    h1 { color: #fff; }
+    .message { display: flex; margin-bottom: 12px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+    .content { background: #2f3136; border-radius: 8px; padding: 8px 12px; flex: 1; }
+    .header { font-weight: 600; color: #fff; }
+    .timestamp { font-weight: 400; font-size: 0.75em; color: #72767d; margin-left: 6px; }
+    .text { margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+    img.attachment, video.attachment { max-width: 100%; border-radius: 5px; margin-top: 5px; }
+    .sticker { width: 120px; height: auto; margin-top: 5px; }
+    .embed { border-left: 4px solid; padding: 8px; margin-top: 6px; border-radius: 5px; background: #2f3136; }
+    .embed-title { font-weight: 700; font-size: 0.95em; margin-bottom: 2px; }
+    .embed-description { margin-top: 2px; font-size: 0.9em; }
+    .embed-field { margin-top: 4px; }
+    .embed-field-name { font-weight: 600; font-size: 0.85em; }
+    .embed-field-value { font-size: 0.85em; margin-left: 4px; }
+    .embed-image, .embed-thumbnail { max-width: 300px; margin-top: 4px; border-radius: 4px; }
+  `;
+
+  let html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Transcript - ${channelName}</title>
+    <style>${css}</style>
+  </head>
+  <body>
+    <h1>Transcript for #${channelName}</h1>
+  `;
 
   messages.reverse().forEach(msg => {
     const timestamp = new Date(msg.createdTimestamp).toLocaleString();
+
     html += `
-<div class="message">
-  <img class="avatar" src="${msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${msg.author.tag}">
-  <div class="content">
-    <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
-    <div class="text">${msg.content || ''}</div>`;
+    <div class="message">
+      <img class="avatar" src="${msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${msg.author.tag}">
+      <div class="content">
+        <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
+        <div class="text">${msg.content || ''}</div>
+    `;
 
     msg.attachments.forEach(att => {
-      const type = att.contentType || '';
-      if (type.startsWith("image")) {
+      const ext = att.url.split('.').pop().toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
         html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
-      } else if (type.startsWith("video")) {
+      } else if (['mp4', 'mov', 'webm'].includes(ext)) {
         html += `<video class="attachment" controls src="${att.url}"></video>`;
       } else {
         html += `<a href="${att.url}" target="_blank">Attachment: ${att.name}</a>`;
@@ -77,22 +84,23 @@ function GenerateTranscriptHtml(channelName, messages) {
 
     if (msg.stickers?.size) {
       msg.stickers.forEach(sticker => {
-        html += `<img class="sticker" src="${sticker.url}" alt="${sticker.name}">`;
+        html += `<img class="sticker" alt="${sticker.name}">`;
       });
     }
 
     if (msg.embeds?.length) {
       msg.embeds.forEach(embed => {
-        html += `<div class="embed">`;
+        const color = embed.hexColor || '#7289da';
+        html += `<div class="embed" style="border-color:${color}">`;
         if (embed.title) html += `<div class="embed-title">${embed.title}</div>`;
         if (embed.description) html += `<div class="embed-description">${embed.description}</div>`;
         if (embed.fields?.length) {
           embed.fields.forEach(f => {
-            html += `<div class="embed-field"><span class="embed-field-name">${f.name}:</span> <span class="embed-field-value">${f.value}</span></div>`;
+            html += `<div class="embed-field"><span class="embed-field-name">${f.name}:</span><span class="embed-field-value">${f.value}</span></div>`;
           });
         }
-        if (embed.image?.url) html += `<img class="attachment" src="${embed.image.url}" alt="Embed Image">`;
-        if (embed.thumbnail?.url) html += `<img class="attachment" src="${embed.thumbnail.url}" alt="Embed Thumbnail">`;
+        if (embed.image?.url) html += `<img class="embed-image" src="${embed.image.url}" alt="Embed Image">`;
+        if (embed.thumbnail?.url) html += `<img class="embed-thumbnail" src="${embed.thumbnail.url}" alt="Embed Thumbnail">`;
         html += `</div>`;
       });
     }
