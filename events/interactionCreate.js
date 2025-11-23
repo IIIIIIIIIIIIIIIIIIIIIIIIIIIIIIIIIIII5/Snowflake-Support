@@ -65,8 +65,7 @@ async function GenerateTranscriptHtml(channelName, messages) {
 <h1>Transcript for #${channelName}</h1>`;
 
   for (const msg of messages.reverse()) {
-    let author = msg.author;
-    if (!author && msg.member) author = msg.member.user;
+    let author = msg.author || (msg.member ? msg.member.user : null);
     if (!author) author = { username: "Unknown", tag: "Unknown#0000", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
 
     const timestamp = msg.createdAt ? msg.createdAt.toLocaleString() : "Unknown Date";
