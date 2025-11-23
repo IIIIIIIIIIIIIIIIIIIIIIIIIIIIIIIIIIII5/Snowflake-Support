@@ -49,38 +49,50 @@ async function GenerateTranscriptHtml(channelName, messages) {
 <meta charset="UTF-8">
 <title>Transcript - ${channelName}</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
+  body { font-family: "Segoe UI", Arial, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
   h1 { color: #fff; }
   .message { display: flex; margin-bottom: 15px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
   .content { background: #2f3136; padding: 10px; border-radius: 5px; flex: 1; }
   .header { font-weight: bold; color: #fff; margin-bottom: 3px; }
   .timestamp { font-size: 0.75em; color: #72767d; margin-left: 5px; }
-  .text { color: #dcddde; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
-  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; }
+  .text { color: #dcddde; white-space: pre-wrap; word-wrap: break-word; }
+  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; display:block; }
+  .embed { border-left: 4px solid #4f545c; background: #2f3136; padding: 8px; margin-top: 5px; border-radius: 3px; }
 </style>
 </head>
 <body>
 <h1>Transcript for #${channelName}</h1>`;
 
   for (const msg of messages.reverse()) {
-    const author = msg.author ?? { username: "Unknown", tag: "Unknown", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
-    const timestamp = msg.createdAt ? msg.createdAt.toLocaleString() : "Unknown Date";
+    let author = msg.author;
+    if (!author && msg.member) author = msg.member.user;
+    if (!author) author = { username: "Unknown", tag: "Unknown#0000", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
 
-    html += `
-<div class="message">
-  <img class="avatar" src="${author.displayAvatarURL?.({ format: "png", size: 128 }) || "https://i.imgur.com/6VBx3io.png"}">
+    const timestamp = msg.createdAt ? msg.createdAt.toLocaleString() : "Unknown Date";
+    const avatarUrl = author.displayAvatarURL?.({ format: "png", size: 128 }) || "https://i.imgur.com/6VBx3io.png";
+
+    html += `<div class="message">
+  <img class="avatar" src="${avatarUrl}">
   <div class="content">
     <div class="header">${author.tag || author.username} <span class="timestamp">${timestamp}</span></div>
-    <div class="text">${msg.content || ""}</div>
-`;
+    <div class="text">${msg.content || ""}</div>`;
 
     if (msg.attachments && msg.attachments.size > 0) {
       const attachments = await Promise.all(
         Array.from(msg.attachments.values()).map(att => UploadAttachmentToR2(msg.channelId, att))
       );
-      for (const url of attachments) {
-        html += `<img class="attachment" src="${url}">`;
+      for (const url of attachments) html += `<img class="attachment" src="${url}">`;
+    }
+
+    if (msg.embeds && msg.embeds.length > 0) {
+      for (const embed of msg.embeds) {
+        html += `<div class="embed">`;
+        if (embed.title) html += `<div class="header">${embed.title}</div>`;
+        if (embed.description) html += `<div class="text">${embed.description}</div>`;
+        if (embed.image?.url) html += `<img class="attachment" src="${embed.image.url}">`;
+        if (embed.thumbnail?.url) html += `<img class="attachment" src="${embed.thumbnail.url}">`;
+        html += `</div>`;
       }
     }
 
@@ -90,6 +102,7 @@ async function GenerateTranscriptHtml(channelName, messages) {
   html += `</body></html>`;
   return html;
 }
+
 
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
