@@ -2,7 +2,7 @@ import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, Butto
 import fetch from "node-fetch";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JsonBinId}`;
+const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
 
 const R2 = new S3Client({
   endpoint: `https://${process.env.R2AccountId}.r2.cloudflarestorage.com`,
@@ -14,7 +14,7 @@ const R2 = new S3Client({
 });
 
 async function GetTickets() {
-  const res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JsonBinKey } });
+  const res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
   const data = await res.json();
   return data.record || {};
 }
@@ -22,7 +22,7 @@ async function GetTickets() {
 async function SaveTickets(tickets) {
   await fetch(JsonBinUrl, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "X-Master-Key": process.env.JsonBinKey },
+    headers: { "Content-Type": "application/json", "X-Master-Key": process.env.JSONBIN_KEY },
     body: JSON.stringify(tickets)
   });
 }
@@ -87,9 +87,9 @@ async function UploadTranscript(channelId, html) {
 }
 
 function GetCategoryType(categoryId) {
-  if (categoryId === process.env.ReportCategory) return "Report";
-  if (categoryId === process.env.AppealCategory) return "Appeal";
-  if (categoryId === process.env.InquiryCategory) return "Inquiry";
+  if (categoryId === process.env.REPORT_CATEGORY) return "Report";
+  if (categoryId === process.env.APPEAL_CATEGORY) return "Appeal";
+  if (categoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
   return "Unknown";
 }
 
@@ -269,9 +269,9 @@ export default {
     }
 
     const ticketCategories = {
-      Report: process.env.ReportCategory,
-      Appeal: process.env.AppealCategory,
-      Inquiry: process.env.InquiryCategory
+      Report: process.env.REPORT_CATEGORY,
+      Appeal: process.env.APPEAL_CATEGORY,
+      Inquiry: process.env.INQUIRY_CATEGORY
     };
 
     let categoryId, topic, type;
