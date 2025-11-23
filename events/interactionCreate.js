@@ -75,9 +75,9 @@ async function GenerateTranscriptHtml(channelName, messages) {
     <div class="text">${msg.content || ""}</div>
 `;
 
-    if (msg.attachments.size > 0) {
+    if (msg.attachments && msg.attachments.size > 0) {
       const attachments = await Promise.all(
-        msg.attachments.map(att => UploadAttachmentToR2(msg.channelId, att))
+        Array.from(msg.attachments.values()).map(att => UploadAttachmentToR2(msg.channelId, att))
       );
       for (const url of attachments) {
         html += `<img class="attachment" src="${url}">`;
