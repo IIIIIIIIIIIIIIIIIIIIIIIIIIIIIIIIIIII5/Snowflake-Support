@@ -64,12 +64,12 @@ async function GenerateTranscriptHtml(channelName, messages) {
 <h1>Transcript for #${channelName}</h1>`;
 
   for (const msg of messages.reverse()) {
-    const author = msg.author ?? { username: "Unknown", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
-    const timestamp = new Date(msg.createdTimestamp).toLocaleString();
+    const author = msg.author ?? { username: "Unknown", tag: "Unknown", displayAvatarURL: () => "https://i.imgur.com/6VBx3io.png" };
+    const timestamp = msg.createdAt ? msg.createdAt.toLocaleString() : "Unknown Date";
 
     html += `
 <div class="message">
-  <img class="avatar" src="${author.displayAvatarURL({ format: "png", size: 128 })}">
+  <img class="avatar" src="${author.displayAvatarURL?.({ format: "png", size: 128 }) || "https://i.imgur.com/6VBx3io.png"}">
   <div class="content">
     <div class="header">${author.tag || author.username} <span class="timestamp">${timestamp}</span></div>
     <div class="text">${msg.content || ""}</div>
