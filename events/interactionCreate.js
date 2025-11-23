@@ -1,15 +1,16 @@
 import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import fetch from "node-fetch";
-import AWS from "aws-sdk";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JsonBinId}`;
 
-const R2 = new AWS.S3({
+const R2 = new S3Client({
   endpoint: `https://${process.env.R2AccountId}.r2.cloudflarestorage.com`,
-  accessKeyId: process.env.R2AccessKey,
-  secretAccessKey: process.env.R2SecretKey,
-  signatureVersion: "v4",
-  region: "auto"
+  region: "auto",
+  credentials: {
+    accessKeyId: process.env.R2AccessKey,
+    secretAccessKey: process.env.R2SecretKey
+  },
 });
 
 async function GetTickets() {
@@ -27,33 +28,62 @@ async function SaveTickets(tickets) {
 }
 
 function GenerateTranscriptHtml(channelName, messages) {
-  let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Transcript - ${channelName}</title><style>
-    body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px;}
-    .message{margin-bottom:15px;padding:10px;border-radius:5px;background:#222;}
-    .author{font-weight:bold;color:#fff;}
-    .content{margin-top:5px;color:#ddd;}
-    img{max-width:300px;margin-top:5px;border-radius:5px;}
-    .timestamp{font-size:0.8em;color:#aaa;margin-top:3px;}
-  </style></head><body><h1>Transcript for ${channelName}</h1>`;
+  let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Transcript - ${channelName}</title>
+<style>
+  body { font-family: 'Arial', sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
+  h1 { color: #fff; }
+  .message { display: flex; margin-bottom: 15px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+  .content { background: #2f3136; padding: 10px; border-radius: 5px; flex: 1; }
+  .header { font-weight: bold; color: #fff; margin-bottom: 3px; }
+  .timestamp { font-size: 0.75em; color: #72767d; margin-left: 5px; }
+  .text { color: #dcddde; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; }
+</style>
+</head>
+<body>
+<h1>Transcript for #${channelName}</h1>`;
+
   messages.reverse().forEach(msg => {
-    html += `<div class="message"><div class="author">${msg.author.tag}</div><div class="content">${msg.content || ""}</div>`;
-    msg.attachments.forEach(a => html += `<img src="${a.url}" alt="Attachment">`);
-    html += `<div class="timestamp">${new Date(msg.createdTimestamp).toLocaleString()}</div></div>`;
+    const timestamp = new Date(msg.createdTimestamp).toLocaleString();
+    html += `
+<div class="message">
+  <img class="avatar" src="${msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${msg.author.tag}">
+  <div class="content">
+    <div class="header">${msg.author.tag} <span class="timestamp">${timestamp}</span></div>
+    <div class="text">${msg.content || ''}</div>`;
+
+    msg.attachments.forEach(att => {
+      html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
+    });
+
+    html += `</div></div>`;
   });
+
   html += `</body></html>`;
   return html;
 }
 
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
-  await R2.putObject({
+  const command = new PutObjectCommand({
     Bucket: process.env.R2Bucket,
     Key: key,
     Body: html,
     ContentType: "text/html",
     ACL: "public-read"
-  }).promise();
-  return `${process.env.R2PublicBase}/${key}`;
+  });
+  try {
+    await R2.send(command);
+    return `${process.env.R2PublicBase}/${key}`;
+  } catch (err) {
+    console.error("R2 upload failed:", err);
+    return "https://example.com";
+  }
 }
 
 function GetCategoryType(categoryId) {
