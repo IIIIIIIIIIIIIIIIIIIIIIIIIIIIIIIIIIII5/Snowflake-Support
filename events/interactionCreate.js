@@ -103,7 +103,6 @@ async function GenerateTranscriptHtml(channelName, messages) {
   return html;
 }
 
-
 async function UploadTranscript(channelId, html) {
   const key = `${channelId}.html`;
 
