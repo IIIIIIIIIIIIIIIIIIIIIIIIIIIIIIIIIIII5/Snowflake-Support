@@ -42,7 +42,14 @@ function GenerateTranscriptHtml(channelName, messages) {
   .header { font-weight: bold; color: #fff; margin-bottom: 3px; }
   .timestamp { font-size: 0.75em; color: #72767d; margin-left: 5px; }
   .text { color: #dcddde; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
-  img.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; }
+  img.attachment, video.attachment { max-width: 400px; max-height: 300px; border-radius: 5px; margin-top: 5px; display: block; }
+  .embed { border-left: 4px solid #7289da; padding: 5px 10px; margin-top: 5px; background: #2c2f33; border-radius: 5px; }
+  .embed-title { font-weight: bold; color: #00b0f4; }
+  .embed-description { color: #dcddde; margin-top: 3px; }
+  .embed-field { margin-top: 3px; }
+  .embed-field-name { font-weight: bold; color: #ffcc00; }
+  .embed-field-value { color: #dcddde; margin-left: 5px; }
+  .sticker { width: 100px; height: 100px; margin-top: 5px; }
 </style>
 </head>
 <body>
@@ -58,8 +65,37 @@ function GenerateTranscriptHtml(channelName, messages) {
     <div class="text">${msg.content || ''}</div>`;
 
     msg.attachments.forEach(att => {
-      html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
+      const type = att.contentType || '';
+      if (type.startsWith("image")) {
+        html += `<img class="attachment" src="${att.url}" alt="Attachment">`;
+      } else if (type.startsWith("video")) {
+        html += `<video class="attachment" controls src="${att.url}"></video>`;
+      } else {
+        html += `<a href="${att.url}" target="_blank">Attachment: ${att.name}</a>`;
+      }
     });
+
+    if (msg.stickers?.size) {
+      msg.stickers.forEach(sticker => {
+        html += `<img class="sticker" src="${sticker.url}" alt="${sticker.name}">`;
+      });
+    }
+
+    if (msg.embeds?.length) {
+      msg.embeds.forEach(embed => {
+        html += `<div class="embed">`;
+        if (embed.title) html += `<div class="embed-title">${embed.title}</div>`;
+        if (embed.description) html += `<div class="embed-description">${embed.description}</div>`;
+        if (embed.fields?.length) {
+          embed.fields.forEach(f => {
+            html += `<div class="embed-field"><span class="embed-field-name">${f.name}:</span> <span class="embed-field-value">${f.value}</span></div>`;
+          });
+        }
+        if (embed.image?.url) html += `<img class="attachment" src="${embed.image.url}" alt="Embed Image">`;
+        if (embed.thumbnail?.url) html += `<img class="attachment" src="${embed.thumbnail.url}" alt="Embed Thumbnail">`;
+        html += `</div>`;
+      });
+    }
 
     html += `</div></div>`;
   });
