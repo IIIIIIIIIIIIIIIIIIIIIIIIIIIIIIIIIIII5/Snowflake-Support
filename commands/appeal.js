@@ -23,6 +23,17 @@ module.exports = {
             .setDescription("Reason to blacklist the user for")
             .setRequired(true)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("unblacklist")
+        .setDescription("Unblacklist a user from appealing")
+        .addUserOption(opt =>
+          opt
+            .setName("user")
+            .setDescription("User to unblacklist from appeals")
+            .setRequired(true)
+        )
     ),
 
   async execute(interaction) {
@@ -41,7 +52,18 @@ module.exports = {
         await Member.roles.add(AppealBlacklistRole).catch(() => {});
       }
 
-      await interaction.reply(`Successfully blacklisted ${Target.tag} for: ${Reason}`);
+      return interaction.reply(`Successfully blacklisted ${Target.tag} for: ${Reason}`);
+    }
+
+    if (sub === "unblacklist") {
+      const Target = interaction.options.getUser("user");
+      const Member = await interaction.guild.members.fetch(Target.id).catch(() => null);
+
+      if (Member) {
+        await Member.roles.remove(AppealBlacklistRole).catch(() => {});
+      }
+
+      return interaction.reply(`Successfully unblacklisted ${Target.tag}!`);
     }
   }
 };
