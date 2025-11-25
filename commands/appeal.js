@@ -3,7 +3,7 @@ import { SlashCommandBuilder } from "discord.js";
 const Roles = ["1403777162460397649", "1402693639486046278"];
 const AppealBlacklistRole = "1442913863988281465";
 
-module.exports = {
+export default {
   data: new SlashCommandBuilder()
     .setName("appeal")
     .setDescription("Appeals")
@@ -38,7 +38,10 @@ module.exports = {
 
   async execute(interaction) {
     if (!interaction.member.roles.cache.some(r => Roles.includes(r.id))) {
-      return interaction.reply({ content: "You do not have permission to use this command!", ephemeral: true });
+      return interaction.reply({ 
+        content: "You do not have permission to use this command!", 
+        ephemeral: true 
+      });
     }
 
     const sub = interaction.options.getSubcommand();
