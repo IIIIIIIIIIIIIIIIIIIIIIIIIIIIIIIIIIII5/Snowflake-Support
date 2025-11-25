@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+import { SlashCommandBuilder } from "discord.js";
 
 const Roles = ["1403777162460397649", "1402693639486046278"];
 const AppealBlacklistRole = "1442913863988281465";
