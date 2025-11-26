@@ -1,3 +1,5 @@
+console.log("Loaded appeal command file");
+
 import { SlashCommandBuilder } from "discord.js";
 
 const Roles = ["1403777162460397649", "1402693639486046278"];
