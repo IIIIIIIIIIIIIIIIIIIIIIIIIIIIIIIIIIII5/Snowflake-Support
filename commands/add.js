@@ -10,7 +10,7 @@ const ALLOWED_ROLES = [
 
 async function getTickets() {
   const res = await fetch(JSONBIN_URL, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
-  const data = await res.json();
+  const data = await res.json()
   return data.record || {};
 }
 
