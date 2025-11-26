@@ -1,6 +1,6 @@
-const { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import fetch from "node-fetch";
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
 
@@ -161,9 +161,8 @@ async function SyncPermissions(Channel, Category, OwnerId) {
   });
 }
 
-module.exports = {
+export default {
   name: "interactionCreate",
-  
   async execute(Interaction, Client) {
     let ActiveTickets = await GetTickets();
     const Guild = Interaction.guild;
