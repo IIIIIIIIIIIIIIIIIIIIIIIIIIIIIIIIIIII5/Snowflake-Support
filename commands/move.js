@@ -1,6 +1,6 @@
-import { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, PermissionsBitField } from "discord.js";
+const { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, PermissionsBitField } = require("discord.js");
 
-export default {
+module.exports = {
   data: new SlashCommandBuilder()
     .setName("move")
     .setDescription("Move the current ticket to another category"),
