@@ -1,6 +1,6 @@
-const { REST, Routes, ActivityType } = require("discord.js");
+import { REST, Routes, ActivityType } from "discord.js";
 
-module.exports = {
+export default {
   name: "ready",
   once: true,
   async execute(client) {
