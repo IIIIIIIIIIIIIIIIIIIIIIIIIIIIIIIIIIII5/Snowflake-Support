@@ -1,5 +1,5 @@
-import { SlashCommandBuilder } from "discord.js";
-import fetch from "node-fetch";
+const { SlashCommandBuilder } = require("discord.js");
+const fetch = require("node-fetch");
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
 const ALLOWED_ROLES = [
@@ -15,7 +15,7 @@ async function getTickets() {
   return data.record || {};
 }
 
-export default {
+module.exports = {
   data: new SlashCommandBuilder()
     .setName("add")
     .setDescription("Add a user to the current ticket")
