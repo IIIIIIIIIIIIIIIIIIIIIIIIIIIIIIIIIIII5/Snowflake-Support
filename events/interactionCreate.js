@@ -161,8 +161,9 @@ async function SyncPermissions(Channel, Category, OwnerId) {
   });
 }
 
-export default {
+module.exports = {
   name: "interactionCreate",
+  
   async execute(Interaction, Client) {
     let ActiveTickets = await GetTickets();
     const Guild = Interaction.guild;
