@@ -1,6 +1,6 @@
-const { Client, Collection, GatewayIntentBits, Partials, REST, Routes } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
+import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType } from "discord.js";
+import fs from "fs";
+import path from "path";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
