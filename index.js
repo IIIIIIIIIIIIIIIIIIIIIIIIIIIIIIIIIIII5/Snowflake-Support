@@ -1,7 +1,6 @@
 import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
 
 dotenv.config();
 
