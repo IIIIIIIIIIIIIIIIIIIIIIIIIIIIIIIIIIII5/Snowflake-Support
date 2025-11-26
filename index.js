@@ -2,8 +2,6 @@ import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "d
 import fs from "fs";
 import path from "path";
 
-dotenv.config();
-
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
   partials: [Partials.Channel],
