@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import fetch from "node-fetch";
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
 const ALLOWED_ROLES = [
