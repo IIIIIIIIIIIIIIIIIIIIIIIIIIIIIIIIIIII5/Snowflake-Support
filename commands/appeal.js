@@ -6,7 +6,7 @@ const AllowedRoles = [
   "1402693639486046278"
 ];
 
-export defaults {
+export default {
   data: new SlashCommandBuilder()
     .setName("appeal")
     .setDescription("Manage appeal blacklist")
