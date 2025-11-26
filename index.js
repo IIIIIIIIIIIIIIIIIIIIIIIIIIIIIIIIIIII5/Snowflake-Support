@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType } from "discord.js";
+const { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType } = require("discord.js");
 import fs from "fs";
 import path from "path";
 
