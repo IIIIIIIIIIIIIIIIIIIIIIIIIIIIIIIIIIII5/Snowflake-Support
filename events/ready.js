@@ -1,6 +1,6 @@
 const { REST, Routes, ActivityType } = require("discord.js");
 
-export default {
+module.exports = {
   name: "ready",
   once: true,
   async execute(client) {
