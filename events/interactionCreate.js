@@ -1,5 +1,5 @@
 const { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const fetch = require("node-fetch");
+import fetch from "node-fetch";
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
 const JsonBinUrl = `https://api.jsonbin.io/v3/b/${process.env.JSONBIN_ID}`;
