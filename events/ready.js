@@ -1,4 +1,4 @@
-import { REST, Routes, ActivityType } from "discord.js";
+const { REST, Routes, ActivityType } = require("discord.js");
 
 export default {
   name: "ready",
