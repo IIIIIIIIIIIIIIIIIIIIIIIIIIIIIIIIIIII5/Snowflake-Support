@@ -1,6 +1,9 @@
-import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType  } from "discord.js";
+import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
 import fs from "fs";
 import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
@@ -30,10 +33,21 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 (async () => {
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
+  try {
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: [] }
+    );
+    console.log("Commands cleared successfully.");
+
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands }
+    );
+    console.log("Commands registered successfully.");
+  } catch (error) {
+    console.error(error);
+  }
 })();
 
 client.login(process.env.TOKEN);
