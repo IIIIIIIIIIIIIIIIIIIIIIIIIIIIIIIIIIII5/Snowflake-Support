@@ -1,4 +1,4 @@
-const { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActivityType  } = require("discord.js");
+const { Client, Collection, GatewayIntentBits, Partials, REST, Routes } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -10,30 +10,36 @@ const client = new Client({
 client.commands = new Collection();
 
 const commands = [];
+
 const commandsPath = path.join(process.cwd(), "commands");
 for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) {
-  const command = await import(`./commands/${file}`);
-  client.commands.set(command.default.data.name, command.default);
-  commands.push(command.default.data.toJSON());
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
+  commands.push(command.data.toJSON());
 }
 
 const eventsPath = path.join(process.cwd(), "events");
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"))) {
-  const event = await import(`./events/${file}`);
-  if (event.default.once) {
-    client.once(event.default.name, (...args) => event.default.execute(...args, client));
+  const event = require(`./events/${file}`);
+  if (event.once) {
+    client.once(event.name, (...args) => event.execute(...args, client));
   } else {
-    client.on(event.default.name, (...args) => event.default.execute(...args, client));
+    client.on(event.name, (...args) => event.execute(...args, client));
   }
 }
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 (async () => {
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
+  try {
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+    console.log("Slash commands registered.");
+  } catch (err) {
+    console.error("Failed to register commands:", err);
+  }
 })();
 
 client.login(process.env.TOKEN);
