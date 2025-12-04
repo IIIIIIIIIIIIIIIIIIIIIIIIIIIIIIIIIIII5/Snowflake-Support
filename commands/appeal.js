@@ -3,7 +3,8 @@ import { SlashCommandBuilder } from "discord.js";
 const AppealBlacklistRole = "1442913863988281465";
 const AllowedRoles = [
   "1403777162460397649",
-  "1402693639486046278"
+  "1402693639486046278",
+  "1235182843487981669"
 ];
 
 export default {
