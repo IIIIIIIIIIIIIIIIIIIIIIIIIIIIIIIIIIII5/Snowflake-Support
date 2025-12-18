@@ -26,16 +26,64 @@ async function SaveTickets(tickets) {
   });
 }
 
-function EscapeHtml(text) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+async function UploadToR2(buffer, key, contentType) {
+  const cmd = new PutObjectCommand({
+    Bucket: process.env.R2Bucket,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+    ACL: "public-read"
+  });
+  try {
+    await R2.send(cmd);
+    return `${process.env.R2PublicBase}/${key}`;
+  } catch (err) {
+    console.error("R2 upload failed:", err);
+    return null;
+  }
 }
 
-function GenerateTranscriptHtml(ChannelName, Messages) {
+async function ProcessAttachments(message) {
+  const attachments = [];
+  for (const att of message.attachments.values()) {
+    const res = await fetch(att.url);
+    const buffer = await res.arrayBuffer();
+    const ext = att.name.split(".").pop().toLowerCase();
+    const key = `attachments/${message.id}-${att.name}`;
+    const url = await UploadToR2(Buffer.from(buffer), key, att.contentType || "application/octet-stream");
+    if (url) attachments.push({ url, type: ext, name: att.name });
+  }
+  return attachments;
+}
+
+function EscapeHtml(text) {
+  // Don't convert &, <, >, etc., just return as-is for transcript to show actual text
+  return text;
+}
+
+function GetCategoryType(CategoryId) {
+  if (CategoryId === process.env.REPORT_CATEGORY) return "Report";
+  if (CategoryId === process.env.APPEAL_CATEGORY) return "Appeal";
+  if (CategoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
+  return "Unknown";
+}
+
+async function SyncPermissions(Channel, Category, OwnerId) {
+  if (!Category) return;
+  const Overwrites = Category.permissionOverwrites.cache.map(Po => ({
+    id: Po.id,
+    allow: new PermissionsBitField(Po.allow).bitfield,
+    deny: new PermissionsBitField(Po.deny).bitfield
+  }));
+  await Channel.permissionOverwrites.set(Overwrites);
+  await Channel.permissionOverwrites.edit(OwnerId, {
+    ViewChannel: true,
+    SendMessages: true,
+    AttachFiles: true
+  });
+}
+
+async function GenerateTranscriptHtml(ChannelName, Messages, Guild) {
   const Css = `
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #36393f; color: #dcddde; padding: 20px; }
     h1 { color: #fff; }
@@ -55,7 +103,6 @@ function GenerateTranscriptHtml(ChannelName, Messages) {
     .embed-field-value { font-size: 0.85em; margin-left: 4px; }
     .embed-image, .embed-thumbnail { max-width: 300px; margin-top: 4px; border-radius: 4px; }
   `;
-
   let Html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -70,45 +117,50 @@ function GenerateTranscriptHtml(ChannelName, Messages) {
 
   Messages.reverse().forEach(Msg => {
     const Timestamp = new Date(Msg.createdTimestamp).toLocaleString();
+    let content = Msg.content || "";
+    content = content.replace(/<@!?(\d+)>/g, (_, id) => {
+      const m = Guild.members.cache.get(id);
+      return m ? `@${m.displayName}` : "@Unknown";
+    });
+
     Html += `
       <div class="message">
         <img class="avatar" src="${Msg.author.displayAvatarURL({ format: 'png', size: 128 })}" alt="${Msg.author.tag}">
         <div class="content">
           <div class="header">${EscapeHtml(Msg.author.tag)} <span class="timestamp">${Timestamp}</span></div>
-          <div class="text">${EscapeHtml(Msg.content || '')}</div>
+          <div class="text">${EscapeHtml(content)}</div>
     `;
 
-    Msg.attachments.forEach(Att => {
-      const Ext = Att.url.split('.').pop().toLowerCase();
-      if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(Ext)) {
-        Html += `<img class="attachment" src="${Att.url}" alt="Attachment">`;
-      } else if (['mp4', 'mov', 'webm'].includes(Ext)) {
+    (Msg.processedAttachments || []).forEach(Att => {
+      if (['png','jpg','jpeg','webp','gif'].includes(Att.type)) {
+        Html += `<a href="${Att.url}" target="_blank"><img class="attachment" src="${Att.url}" alt="Attachment"></a>`;
+      } else if (['mp4','mov','webm'].includes(Att.type)) {
         Html += `<video class="attachment" controls src="${Att.url}"></video>`;
       } else {
         Html += `<a href="${Att.url}" target="_blank">Attachment: ${EscapeHtml(Att.name)}</a>`;
       }
     });
 
-    if (Msg.stickers?.size) {
-      Msg.stickers.forEach(Sticker => {
-        Html += `<img class="sticker" src="https://cdn.discordapp.com/stickers/${Sticker.id}.png" alt="${EscapeHtml(Sticker.name)}">`;
+    if (Msg.stickers?.length) {
+      Msg.stickers.forEach(sticker => {
+        Html += `<img class="sticker" src="https://cdn.discordapp.com/stickers/${sticker.id}.png" alt="${EscapeHtml(sticker.name)}">`;
       });
     }
 
     if (Msg.embeds?.length) {
-      Msg.embeds.forEach(Embed => {
-        const Color = Embed.hexColor || '#7289da';
+      Msg.embeds.forEach(embed => {
+        const Color = embed.hexColor || '#7289da';
         Html += `<div class="embed" style="border-color:${Color}">`;
-        if (Embed.title) Html += `<div class="embed-title">${EscapeHtml(Embed.title)}</div>`;
-        if (Embed.description) Html += `<div class="embed-description">${EscapeHtml(Embed.description || '')}</div>`;
-        if (Embed.fields?.length) {
-          Embed.fields.forEach(F => {
-            Html += `<div class="embed-field"><span class="embed-field-name">${EscapeHtml(F.name)}:</span><span class="embed-field-value">${EscapeHtml(F.value)}</span></div>`;
+        if (embed.title) Html += `<div class="embed-title">${EscapeHtml(embed.title)}</div>`;
+        if (embed.description) Html += `<div class="embed-description">${EscapeHtml(embed.description || '')}</div>`;
+        if (embed.fields?.length) {
+          embed.fields.forEach(f => {
+            Html += `<div class="embed-field"><span class="embed-field-name">${EscapeHtml(f.name)}:</span><span class="embed-field-value">${EscapeHtml(f.value)}</span></div>`;
           });
         }
-        if (Embed.image?.url) Html += `<img class="embed-image" src="${Embed.image.url}" alt="Embed Image">`;
-        if (Embed.thumbnail?.url) Html += `<img class="embed-thumbnail" src="${Embed.thumbnail.url}" alt="Embed Thumbnail">`;
-        if (Embed.video?.url) Html += `<video class="embed-image" controls src="${Embed.video.url}"></video>`;
+        if (embed.image?.url) Html += `<a href="${embed.image.url}" target="_blank"><img class="embed-image" src="${embed.image.url}" alt="Embed Image"></a>`;
+        if (embed.thumbnail?.url) Html += `<a href="${embed.thumbnail.url}" target="_blank"><img class="embed-thumbnail" src="${embed.thumbnail.url}" alt="Embed Thumbnail"></a>`;
+        if (embed.video?.url) Html += `<video class="embed-image" controls src="${embed.video.url}"></video>`;
         Html += `</div>`;
       });
     }
@@ -138,37 +190,14 @@ async function UploadTranscript(ChannelId, Html) {
   }
 }
 
-function GetCategoryType(CategoryId) {
-  if (CategoryId === process.env.REPORT_CATEGORY) return "Report";
-  if (CategoryId === process.env.APPEAL_CATEGORY) return "Appeal";
-  if (CategoryId === process.env.INQUIRY_CATEGORY) return "Inquiry";
-  return "Unknown";
-}
-
-async function SyncPermissions(Channel, Category, OwnerId) {
-  if (!Category) return;
-  const Overwrites = Category.permissionOverwrites.cache.map(Po => ({
-    id: Po.id,
-    allow: new PermissionsBitField(Po.allow).bitfield,
-    deny: new PermissionsBitField(Po.deny).bitfield
-  }));
-  await Channel.permissionOverwrites.set(Overwrites);
-  await Channel.permissionOverwrites.edit(OwnerId, {
-    ViewChannel: true,
-    SendMessages: true,
-    AttachFiles: true
-  });
-}
-
 export default {
   name: "interactionCreate",
   async execute(Interaction, Client) {
-    let ActiveTickets = await GetTickets();
     const Guild = Interaction.guild;
     const User = Interaction.user;
+    let ActiveTickets = await GetTickets();
 
     if (!Client.TicketCounts) Client.TicketCounts = { Report: 0, Appeal: 0, Inquiry: 0 };
-
     for (const T of Object.values(ActiveTickets)) {
       if (T.categoryType && typeof T.ticketNumber === "number") {
         if (!Client.TicketCounts[T.categoryType] || Client.TicketCounts[T.categoryType] < T.ticketNumber) {
@@ -180,8 +209,7 @@ export default {
     if (Interaction.isChatInputCommand()) {
       const Command = Client.commands.get(Interaction.commandName);
       if (!Command) return;
-      try { await Command.execute(Interaction, Client); } 
-      catch (Err) { console.error(Err); Interaction.reply({ content: "Error executing command.", ephemeral: true }); }
+      try { await Command.execute(Interaction, Client); } catch (err) { console.error(err); Interaction.reply({ content: "Error executing command.", ephemeral: true }); }
       return;
     }
 
