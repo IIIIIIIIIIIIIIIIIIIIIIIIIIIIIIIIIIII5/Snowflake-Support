@@ -57,7 +57,6 @@ async function ProcessAttachments(message) {
 }
 
 function EscapeHtml(text) {
-  // Don't convert &, <, >, etc., just return as-is for transcript to show actual text
   return text;
 }
 
