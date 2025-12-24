@@ -1,6 +1,7 @@
 import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
 import fs from "fs";
 import path from "path";
+import interactionHandler, { GetTickets, SaveTickets, GenerateTranscriptHtml, UploadTranscript, GetCategoryType } from "./events/interactionCreate.js";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -46,8 +47,6 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
     console.error(error);
   }
 })();
-
-import interactionHandler from "./events/interactionCreate.js";
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
