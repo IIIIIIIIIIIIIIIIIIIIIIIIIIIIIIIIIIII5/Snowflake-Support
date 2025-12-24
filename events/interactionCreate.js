@@ -50,7 +50,7 @@ async function UploadTranscript(ChannelId, Html) {
 }
 
 async function CloseTicketMessage(message, client) {
-  const allowedUserId = "1442913863988281465";
+  const allowedUserId = "1167121753672257576";
   if (message.author.id !== allowedUserId) {
     return message.reply("You are not allowed to close tickets.");
   }
