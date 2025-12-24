@@ -380,5 +380,11 @@ export default {
 
     await Channel.send({ content: `<@${User.id}>`, embeds: [TicketEmbed], components: [Buttons] });
     return Interaction.reply({ content: `Your ${Type} ticket has been created: <#${Channel.id}>`, ephemeral: true });
-  }
+  },
+
+  GetTickets,
+  SaveTickets,
+  GenerateTranscriptHtml,
+  UploadTranscript,
+  GetCategoryType
 };
