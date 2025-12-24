@@ -37,9 +37,7 @@ async function UploadToR2(buffer, key, contentType) {
   try {
     await R2.send(cmd);
     return `${process.env.R2PublicBase}/${key}`;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function ProcessAttachments(message) {
@@ -199,6 +197,12 @@ export default {
       }
     }
 
+    const Member = await Guild.members.fetch(User.id);
+    const BlockedRoleId = "1442913863988281465";
+    if (Member.roles.cache.has(BlockedRoleId) && Interaction.customId?.endsWith("_ticket")) {
+      return Interaction.reply({ content: "You are not allowed to create tickets.", ephemeral: true });
+    }
+
     if (Interaction.isChatInputCommand()) {
       const Command = Client.commands.get(Interaction.commandName);
       if (!Command) return;
@@ -295,7 +299,6 @@ export default {
       if (!TicketData) return Interaction.reply({ content: "Ticket data not found.", ephemeral: true });
       if (TicketData.claimerId) return Interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
 
-      const Member = await Guild.members.fetch(User.id);
       const AllowedRoles = [
         "1403777886661644398",
         "1403777609522745485",
@@ -376,6 +379,6 @@ export default {
       .setTimestamp();
 
     await Channel.send({ content: `<@${User.id}>`, embeds: [TicketEmbed], components: [Buttons] });
-    await Interaction.reply({ content: `Your ${Type} ticket has been created: <#${Channel.id}>`, ephemeral: true });
+    return Interaction.reply({ content: `Your ${Type} ticket has been created: <#${Channel.id}>`, ephemeral: true });
   }
 };
