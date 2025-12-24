@@ -47,7 +47,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
   }
 })();
 
-import interactionHandler from "./events/interactionCreate";
+import interactionHandler from "./events/interactionCreate.js";
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
