@@ -1,7 +1,7 @@
-const { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
-const interactionHandler = require("./events/interactionCreate.js");
+import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import fs from "fs";
+import path from "path";
+import interactionHandler from "./events/interactionCreate.js";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -10,9 +10,10 @@ const client = new Client({
 
 client.commands = new Collection();
 
-const commandsPath = path.join(__dirname, "commands");
+const commandsPath = path.join(process.cwd(), "commands");
 for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"))) {
-  const command = require(`./commands/${file}`);
+  const commandModule = await import(`./commands/${file}`);
+  const command = commandModule.default;
   client.commands.set(command.data.name, command);
 }
 
