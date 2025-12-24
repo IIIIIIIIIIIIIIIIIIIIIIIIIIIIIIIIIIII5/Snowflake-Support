@@ -51,11 +51,16 @@ async function UploadTranscript(ChannelId, Html) {
 
 async function CloseTicketMessage(message, client) {
   const allowedUserId = "1442913863988281465";
-  if (message.author.id !== allowedUserId) return;
-
+  if (message.author.id !== allowedUserId) {
+    return message.reply("You are not allowed to close tickets.");
+  }
+  
   const ActiveTickets = await GetTickets();
   const TicketData = ActiveTickets[message.channel.id];
-  if (!TicketData) return message.reply("No ticket data found for this channel.");
+  
+  if (!TicketData) {
+    return message.reply("No ticket data found for this channel.");
+  }
 
   const Messages = await message.channel.messages.fetch({ limit: 100 });
   const Html = await GenerateTranscriptHtml(message.channel.name, Messages, message.guild);
