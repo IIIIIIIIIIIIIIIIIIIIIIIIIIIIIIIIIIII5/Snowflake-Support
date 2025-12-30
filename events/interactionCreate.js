@@ -243,7 +243,7 @@ export default {
       if (!Confirmed) { await Interaction.message.edit({ content: "Ticket close cancelled.", components: [] }); await Interaction.editReply({ content: "Cancelled ticket closure." }); return; }
 
       const Messages = await Interaction.channel.messages.fetch({ limit: 100 });
-      const Html = GenerateTranscriptHtml(Interaction.channel.name, Messages);
+      const Html = await GenerateTranscriptHtml(Interaction.channel.name, Messages, Guild);
       let TranscriptUrl = "";
       try { TranscriptUrl = await UploadTranscript(Interaction.channel.id, Html); } 
       catch (Err) { console.error("R2 upload failed:", Err); TranscriptUrl = "https://example.com"; }
