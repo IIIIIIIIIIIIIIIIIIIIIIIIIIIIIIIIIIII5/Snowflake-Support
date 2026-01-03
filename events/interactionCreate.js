@@ -12,6 +12,15 @@ const R2 = new S3Client({
   },
 });
 
+const ModerationRoles = [
+  "1403777886661644398",
+  "1403777609522745485",
+  "1403777335416848537",
+  "1403777452517494784",
+  "1403777162460397649",
+  "1423280211239243826"
+];
+
 async function GetTickets() {
   const res = await fetch(JsonBinUrl, { headers: { "X-Master-Key": process.env.JSONBIN_KEY } });
   const data = await res.json();
@@ -74,6 +83,19 @@ async function SyncPermissions(Channel, Category, OwnerId) {
     allow: new PermissionsBitField(Po.allow).bitfield,
     deny: new PermissionsBitField(Po.deny).bitfield
   }));
+
+  for (const RoleId of ModerationRoles) {
+    Overwrites.push({
+      id: RoleId,
+      allow: new PermissionsBitField([
+        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.ReadMessageHistory,
+        PermissionsBitField.Flags.SendMessages
+      ]).bitfield,
+      deny: 0n
+    });
+  }
+
   await Channel.permissionOverwrites.set(Overwrites);
   await Channel.permissionOverwrites.edit(OwnerId, {
     ViewChannel: true,
@@ -309,20 +331,16 @@ export default {
     }
 
     if (Interaction.customId === "claim_ticket") {
-      if (!TicketData) return Interaction.reply({ content: "Ticket data not found.", ephemeral: true });
-      if (TicketData.claimerId) return Interaction.reply({ content: "This ticket is already claimed.", ephemeral: true });
+      await Interaction.deferReply({ ephemeral: false });
+
+      if (!TicketData) return Interaction.editReply({ content: "Ticket data not found." });
+      if (TicketData.claimerId) return Interaction.editReply({ content: "This ticket is already claimed." });
 
       const Member = await Guild.members.fetch(User.id);
-      const AllowedRoles = [
-        "1403777886661644398",
-        "1403777609522745485",
-        "1403777335416848537",
-        "1403777452517494784",
-        "1403777162460397649",
-        "1423280211239243826"
-      ];
-      const HasRole = Member.roles.cache.some(R => AllowedRoles.includes(R.id));
-      if (!Member.permissions.has(PermissionsBitField.Flags.Administrator) && !HasRole) return Interaction.reply({ content: "You do not have permission to claim tickets.", ephemeral: true });
+      const HasRole = Member.roles.cache.some(R => ModerationRoles.includes(R.id));
+
+      if (!Member.permissions.has(PermissionsBitField.Flags.Administrator) && !HasRole)
+        return Interaction.editReply({ content: "You do not have permission to claim tickets." });
 
       TicketData.claimerId = User.id;
       ActiveTickets[Interaction.channel.id] = TicketData;
@@ -330,6 +348,7 @@ export default {
 
       const FetchedMessages = await Interaction.channel.messages.fetch({ limit: 10 });
       const TicketMessage = FetchedMessages.find(M => M.components.length > 0);
+
       if (TicketMessage) {
         const UpdatedRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("close_ticket").setLabel("Close Ticket").setStyle(ButtonStyle.Danger)
@@ -337,14 +356,24 @@ export default {
         await TicketMessage.edit({ components: [UpdatedRow] });
       }
 
-      const Category = Interaction.channel.parent ? Guild.channels.cache.get(Interaction.channel.parentId) : null;
+      const Category = Interaction.channel.parent
+        ? Guild.channels.cache.get(Interaction.channel.parentId)
+        : null;
+
       if (Category) await SyncPermissions(Interaction.channel, Category, TicketData.ownerId);
 
-      await Interaction.channel.permissionOverwrites.edit(TicketData.ownerId, { ViewChannel: true, SendMessages: true, AttachFiles: true });
-      await Interaction.channel.permissionOverwrites.edit(TicketData.claimerId, { ViewChannel: true, SendMessages: true });
+      await Interaction.channel.permissionOverwrites.edit(TicketData.ownerId, {
+        ViewChannel: true,
+        SendMessages: true,
+        AttachFiles: true
+      });
 
-      await Interaction.reply({ content: `Ticket claimed by ${User.tag}`, ephemeral: false });
-      return;
+      await Interaction.channel.permissionOverwrites.edit(User.id, {
+        ViewChannel: true,
+        SendMessages: true
+      });
+
+      return Interaction.editReply({ content: `Ticket claimed by ${User.tag}` });
     }
 
     const TicketCategories = {
