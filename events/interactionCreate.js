@@ -77,32 +77,47 @@ function GetCategoryType(CategoryId) {
   return "Unknown";
 }
 
-async function SyncPermissions(Channel, Category, OwnerId) {
-  if (!Category) return;
-  const Overwrites = Category.permissionOverwrites.cache.map(Po => ({
-    id: Po.id,
-    allow: new PermissionsBitField(Po.allow).bitfield,
-    deny: new PermissionsBitField(Po.deny).bitfield
-  }));
+async function SyncPermissions(channel, category, ownerId) {
+  if (!category) return;
 
-  for (const RoleId of ModerationRoles) {
-    Overwrites.push({
-      id: RoleId,
-      allow: new PermissionsBitField([
+  const guild = channel.guild;
+  const overwrites = [];
+
+  for (const po of category.permissionOverwrites.cache.values()) {
+    const role = guild.roles.cache.get(po.id);
+    const member = guild.members.cache.get(po.id);
+    if (!role && !member) continue;
+
+    overwrites.push({
+      id: po.id,
+      allow: po.allow.bitfield,
+      deny: po.deny.bitfield
+    });
+  }
+
+  for (const roleId of ModerationRoles) {
+    if (!guild.roles.cache.has(roleId)) continue;
+    overwrites.push({
+      id: roleId,
+      allow: PermissionsBitField.resolve([
         PermissionsBitField.Flags.ViewChannel,
         PermissionsBitField.Flags.ReadMessageHistory,
         PermissionsBitField.Flags.SendMessages
-      ]).bitfield,
+      ]),
       deny: 0n
     });
   }
 
-  await Channel.permissionOverwrites.set(Overwrites);
-  await Channel.permissionOverwrites.edit(OwnerId, {
-    ViewChannel: true,
-    SendMessages: true,
-    AttachFiles: true
-  });
+  await channel.permissionOverwrites.set(overwrites);
+
+  const ownerMember = await guild.members.fetch(ownerId).catch(() => null);
+  if (ownerMember) {
+    await channel.permissionOverwrites.edit(ownerId, {
+      ViewChannel: true,
+      SendMessages: true,
+      AttachFiles: true
+    });
+  }
 }
 
 async function GenerateTranscriptHtml(ChannelName, Messages, Guild) {
