@@ -1,4 +1,3 @@
-// events/interactionCreate.js
 import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
